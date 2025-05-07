@@ -1,0 +1,19 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+{% for periode in periodes_impayees %}
+<div class="periode">
+  <h3>{{ periode.nom }} - {{ periode.montant }} FCFA</h3>
+  <button class="btn-payer" data-montant="{{ periode.montant }}" 
+          data-periode="{{ periode.id }}">
+    Payer via Mobile Money
+  </button>
+</div>
+{% endfor %}
+
+<div id="modal-operateurs">
+  <button data-operator="ORANGE">Orange Money</button>
+  <button data-operator="MALITEL">Malitel Money</button>
+</div>
+
+{% endblock %}

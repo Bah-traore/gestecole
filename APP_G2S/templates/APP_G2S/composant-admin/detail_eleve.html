@@ -1,0 +1,139 @@
+{% extends "base_nav.html" %}
+
+{% block content %}
+
+<main class="bg-gray-50 min-h-screen p-4 md:p-8">
+
+    <a href="{% url 'eleve_gestion' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
+        <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+    </a>
+
+    <div class="max-w-7xl mx-auto">
+
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Profil de l'élève</h1>
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-4">
+            <!-- Sidebar gauche -->
+            <div class="lg:bg-gray-800 text-white p-6 lg:rounded-lg">
+                <div class="flex flex-col items-center">
+                    <img src="{{ eleve.profile_picture.url }}"
+                         alt="Photo de profil" 
+                         class="w-32 h-32 object-cover rounded-full mb-4 border-4 border-blue-100">
+                    <div class="space-y-3 w-full">
+                        <div class="bg-gray-700 p-3 rounded-lg text-center">
+                            <p class="font-semibold text-lg">{{ eleve.prenom }} {{ eleve.nom }}</p>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded-lg text-center">
+                            <p class="text-sm">Classe : {{ eleve.classe }}</p>
+                            <p class="text-sm mt-1">Section : {{ eleve.classe.section|upper }}</p>
+                        </div>
+                        {% if not emploi %}
+                        <div class="bg-red-100 text-red-800 p-3 rounded-lg text-sm text-center">
+                            Aucun emploi du temps disponible
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Contenu principal -->
+            <div class="flex flex-col p-6 space-y-6">
+                <!-- Section Notes -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold p-4 border-b border-gray-100">Notes</h3>
+                    <div class="overflow-y-auto h-60">
+                        <table class="w-full relative">
+                            <thead class="bg-gray-50 sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-white">Matière</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-white">Note Classe</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-white">Note Examen</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-white">Période</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 bg-white">Coefficient</th>
+                                </tr>
+
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                                {% regroup notes|dictsort:"matiere.nom" by matiere as matiere_notes %}
+                                {% for matiere in matiere_notes %}
+                                {% with coefficient=matiere.grouper.coefficient %}
+                                    {% for note in matiere.list %}
+                                    <tr class="note-row hover:bg-gray-50 transition-colors" 
+                                        data-subject="{{ matiere.grouper.nom }}"
+                                        data-period="{{ note.periode.id }}">
+                                        <td class="px-4 py-3 text-gray-700 font-medium">{{ matiere.grouper.nom }}</td>
+                                        <td class="px-4 py-3 text-blue-600">{{ note.valeur|default:"-" }}/20</td>
+                                        <td class="px-4 py-3 text-green-600">
+                                            {% for note_examen in notes_examen %}
+                                                {% if note_examen.matiere == matiere.grouper and note_examen.periode == note.periode %}
+                                                    {{ note_examen.note|default:"-" }}/40
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-500">
+                                            Période {{ note.periode.numero }}<br>
+                                            <span class="text-xs">{{ note.periode.date_debut|date:"d/m/Y" }} - {{ note.periode.date_fin|date:"d/m/Y" }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-purple-600 font-medium">{{ coefficient }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endwith %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="px-4 py-3 text-center text-gray-500">Aucune note disponible</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section Emploi du temps -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold p-4 border-b border-gray-100">Emploi du temps</h3>
+                    <div class="p-4 space-y-4 overflow-y-auto h-60">
+                        {% regroup emploi by date as emplois_groupes %}
+                        {% for groupe in emplois_groupes %}
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <h4 class="font-medium text-gray-700 mb-2">{{ groupe.grouper|date:"l d F Y" }}</h4>
+                                {% for cours in groupe.list %}
+                                    <div class="flex items-center justify-between p-2 bg-white rounded shadow-sm mb-2">
+                                        <div class="text-gray-600">
+                                            <span class="font-medium">{{ cours.matiere.nom }}</span>
+                                            <span class="text-sm">({{ cours.salle }})</span>
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            {{ cours.start_time|time:"H:i" }} - {{ cours.end_time|time:"H:i" }}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% empty %}
+                            <div class="bg-red-50 text-red-700 p-3 rounded-lg">Aucun emploi du temps disponible</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Section Absences -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-semibold p-4 border-b border-gray-100">Absences</h3>
+                    <div class="p-4 space-y-2 overflow-y-auto h-60">
+                        {% for absence in eleve.absences.all %}
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
+                            <div class="text-gray-700">{{ absence.date|date:"d/m/Y" }}</div>
+                            <div class="text-gray-500 text-sm">
+                                {{ absence.emploi_du_temps.matiere.nom }}
+                                ({{ absence.emploi_du_temps.start_time|time:"H:i" }}-{{ absence.emploi_du_temps.end_time|time:"H:i" }})
+                            </div>
+                            <div class="text-red-600 text-sm">
+                                {{ absence.justification_status|default:"Non justifié" }}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-gray-500 py-4">Aucune absence enregistrée</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

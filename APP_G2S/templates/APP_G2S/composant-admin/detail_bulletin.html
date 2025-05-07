@@ -1,0 +1,44 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg p-6">
+    <h1 class="text-2xl font-bold mb-4">Détails du Bulletin</h1>
+    <p><strong>Élève :</strong> {{ bulletin.eleve }}</p>
+    <p><strong>Moyenne Générale :</strong> {{ bulletin.moyenne_generale }}</p>
+    <p><strong>Date de Création :</strong> {{ bulletin.date_creation }}</p>
+
+
+    <h2 class="text-xl font-semibold mt-6 mb-4">Notes par Matière</h2>
+
+
+    {% comment %} <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-lg font-semibold mb-2">Comparaison avec la Classe</h3>
+        <p>Moyenne de la classe: {{ class_average|floatformat:2 }}</p>
+        <p>Classement: {{ bulletin.classement }} sur {{ class_total }}</p>
+    </div> {% endcomment %}
+
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white border border-gray-200">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b">Matière</th>
+                    <th class="py-2 px-4 border-b">Note</th>
+                    <th class="py-2 px-4 border-b">Coefficient</th>
+                    <th class="py-2 px-4 border-b">Note Pondérée</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for note in notes_details %}
+                <tr>
+                    <td class="py-2 px-4 border-b">{{ note.matiere }}</td>
+                    <td class="py-2 px-4 border-b">{{ note.note }}</td>
+                    <td class="py-2 px-4 border-b">{{ note.coefficient }}</td>
+                    <td class="py-2 px-4 border-b">{{ note.note_ponderee }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

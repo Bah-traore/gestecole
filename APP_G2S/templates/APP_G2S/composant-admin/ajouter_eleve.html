@@ -1,0 +1,154 @@
+{% extends "base_admin.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4 px-8">
+    <div class="row">
+        <div class="col-12 col-xl-8 mx-auto">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <!-- En-tête avec icône -->
+                <div class="card-header bg-green-900 py-4 rounded-lg  justify-content-between align-items-center">
+                    <h3 class="mb-0 dark:text-white text-black text-center d-flex">
+                        <i class="fas fa-user-graduate me-2"></i>
+                        Nouvel élève
+                    </h3>
+                </div>
+
+                <!-- Corps du formulaire --> 
+                <div class="card-body px-5 py-4">
+                    <form method="POST" class="needs-validation" novalidate enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row g-4">
+                            <!-- Colonne gauche -->
+                            <div class="col-md-6">
+                                <!-- Nom -->
+                                <div class="form-floating mb-3">
+                                    {{ form.nom }}
+                                    <label for="{{ form.nom.id_for_label }}" class="form-label">
+                                        <i class="fas fa-id-card me-2"></i>Nom
+                                    </label>
+                                </div>
+
+                                <!-- Prénom -->
+                                <div class="form-floating mb-3">
+                                    {{ form.prenom }}
+                                    <label for="{{ form.prenom.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Prénom
+                                    </label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    {{ form.prenom_parent }}
+                                    <label for="{{ form.prenom_parent.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Prénom parent
+                                    </label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    {{ form.nom_parent }}
+                                    <label for="{{ form.nom_parent.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Nom parent
+                                    </label>
+                                </div>
+
+                                {% comment %} j'ai un gros probléme a ce niveau mais image n'est pas envoyer dans la base de donner mais on verra après oo {% endcomment %}
+                                <div class="form-floating mb-3">
+                                    {{ form.profile_picture }}
+                                    <label for="{{ form.profile_picture.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>picture
+                                    </label>
+                                </div>
+
+                                <!-- Téléphone -->
+                                <div class="form-floating mb-3">
+                                    {{ form.telephone }}
+                                    <label for="{{ form.telephone.id_for_label }}" class="form-label">
+                                        <i class="fas fa-mobile-alt me-2"></i>Téléphone
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Colonne droite -->
+                            <div class="col-md-6">
+                                <!-- Classe -->
+                                <div class="form-floating mb-3">
+                                    {{ form.classe }}
+                                    <label for="{{ form.classe.id_for_label }}" class="form-label">
+                                        <i class="fas fa-school me-2"></i>Classe
+                                    </label>
+                                </div>
+
+                                <!-- Âge -->
+                                <div class="form-floating mb-3">
+                                    {{ form.age }}
+                                    <label for="{{ form.age.id_for_label }}" class="form-label">
+                                        <i class="fas fa-calendar-alt me-2"></i>Âge
+                                    </label>
+                                </div>
+
+                                <!-- Résidence -->
+                                <div class="form-floating mb-3">
+                                    {{ form.residence }}
+                                    <label for="{{ form.residence.id_for_label }}" class="form-label">
+                                        <i class="fas fa-map-marker-alt me-2"></i>Résidence
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bouton de soumission -->
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-lg btn-success rounded-pill">
+                                <i class="fas fa-save me-2"></i>Enregistrer l'élève
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control {
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+        border-color: #0d6efd;
+    }
+    
+    .form-floating label {
+        padding-left: 2.5rem;
+    }
+    
+    .card {
+        transition: transform 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+
+<script>
+    // Afficher un message de succès après l'enregistrement
+    {% if messages %}
+        {% for message in messages %}
+            showToast('{{ message }}', 'success');
+        {% endfor %}
+    {% endif %}
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 p-4 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.remove();
+        }, 6000);
+    }
+</script>   
+
+{% endblock %}

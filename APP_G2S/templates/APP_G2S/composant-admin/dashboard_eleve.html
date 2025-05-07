@@ -1,0 +1,80 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+
+
+{% block content %}
+
+
+<div class="-max-w-2xl flex-column mx-auto mt-8 bg-white shadow-lg rounded-lg p-6">
+    
+    <div class="grid grid-cols-3 gap-4 justify-items-center">
+        <a href="{% url 'eleve_gestion'  %}" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+              <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">Liste Élève</span>
+        </a>
+    
+      <a href="{% url 'liste_matieres' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <i class="fa-solid fa-person-chalkboard text-gray-700 text-3xl"></i>
+        </div>
+        <span class="text-gray-700">Liste des matieres</span>
+    </a>
+    
+    <a href="{% url 'liste_classes' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700 text-wrap">Liste des classes</span>
+    </a>
+    <a href="{% url 'bulletins' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700">Bulletin</span>
+    </a>
+
+    <a href="{% url 'liste_absences' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700">Absence</span>
+    </a>
+
+    <a href="{% url 'saisir_notes' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700">Saisir note</span>
+    </a>
+
+
+    <a href="{% url 'liste_examens' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt="">
+        </div>
+        <span class="text-gray-700">liste examens</span>
+    </a>
+
+    <a href="{% url 'enseignant_gestion' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700">ajouter enseignant</span>
+    </a>
+
+    <a href="{% url 'emploi_du_temps' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            {% comment %} <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt=""> {% endcomment %}
+        </div>
+        <span class="text-gray-700">Emploi du Temps</span>
+    </a>
+
+        
+
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base_admin.html' %}
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-xl font-semibold text-gray-900">Modifier la classe</h1>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="space-y-6">
+                {{ form.as_p }}
+                <div class="flex justify-end gap-x-4">
+                    <a href="{% url 'liste_classes' %}" class="btn btn-secondary">
+                        Annuler
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        Enregistrer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+{% load static %}
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<div class="text-center  dark:bg-[#B7B7B7] bg-[#B7B7B7] p-4 rounded-lg">
+    <h1 class="text-2xl font-bold text-gray-800">Bienvenue sur le Tableau de Bord <span>{{user.prenom}} {{ user.nom }}</span></h1>
+</div>
+
+
+
+<div class="-max-w-2xl flex-column mx-auto mt-8 bg-white shadow-lg rounded-lg p-6">
+    
+    <div class="grid grid-cols-3 gap-4 justify-items-center">
+        <a href="{% url 'eleve_gestion'  %}" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+              <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">Élève</span>
+        </a>
+    
+      <a href="{% url 'enseignant_gestion' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <i class="fa-solid fa-person-chalkboard text-gray-700 text-3xl"></i>
+        </div>
+        <span class="text-gray-700">Enseignant</span>
+    </a>
+    
+    <a href="{% url 'emploi_du_temps' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt="">
+        </div>
+        <span class="text-gray-700 text-wrap">Emploi du temps</span>
+    </a>
+
+    <a href="{% url 'bulletins' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt="">
+        </div>
+        <span class="text-gray-700">bulletin</span>
+    </a>
+    <a href="{% url 'liste_examens' %}" class="flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+            <img src="{% static 'APP_G2S/image/icon-bulletin.png' %}" alt="">
+        </div>
+        <span class="text-gray-700">liste examens</span>
+    </a>
+
+        
+
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="alert alert-danger shadow-lg">
+        <div class="alert-heading">
+            <h4 class="alert-title"><i class="fas fa-exclamation-triangle"></i> Suspension Scolaire</h4>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-8">
+                <h5>Motif de Suspension</h5>
+                <p class="mb-4">Élève suspendu pour impayés de frais scolaires</p>
+
+                <h5>Détails des Impayés</h5>
+                <ul class="list-group">
+                    {% for periode in periodes_impayees %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ periode.nom }}
+                        <span class="badge badge-danger badge-pill">{{ periode.montant|intcomma }} FCFA</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="col-md-4 border-left">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-slash fa-4x text-danger"></i>
+                </div>
+                <div class="alert alert-warning">
+                    <h6>Procédure de Réactivation :</h6>
+                    <ol class="pl-3">
+                        <li>Régler les impayés via les canaux de paiement</li>
+                        <li>Présenter la preuve de paiement à l'administration</li>
+                        <li>La réactivation sera effective sous 24h</li>
+                    </ol>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Contact Support :</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-phone"></i> (+223) 123 456 789</li>
+                        <li><i class="fas fa-envelope"></i> finances@ecole.ml</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

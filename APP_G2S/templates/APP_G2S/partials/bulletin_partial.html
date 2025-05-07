@@ -1,0 +1,205 @@
+<!-- partials/bulletin_partial.html -->
+{% load perso_filtre %}
+{% comment %} {% if eleve %} {% endcomment %}
+{% comment %} <form method="POST" id="bulletinForm">
+    {% csrf_token %}
+    <!-- En-tête du bulletin -->
+    <div class="mb-8 text-center border-b pb-4">
+        <h2 class="text-2xl font-bold text-gray-800">LYCÉE DOWÈLE MARICO DE DIOILA</h2>
+        <p class="text-sm text-gray-600 mt-1">AE : DIOILA - Année scolaire 2024/2025</p>
+    </div>
+
+    <!-- Informations élève -->
+    <div class="mb-8 p-4 bg-gray-50 rounded-lg shadow-sm">
+        <!-- ... (contenu existant) ... -->
+    </div>
+
+    <!-- Tableau des matières -->
+    <div class="mb-6 overflow-x-auto">
+        <table class="w-full border-collapse border-2 border-gray-200">
+            <!-- ... (contenu existant) ... -->
+            {% for matiere in matieres_classe %}
+            <tr class="hover:bg-gray-50" data-matiere="{{ matiere.id }}">
+                <td class="border-2 border-gray-300 p-3">{{ matiere.nom }}</td>
+                <td class="border-2 border-gray-300 p-3 text-center coefficient">{{ matiere.coefficient }}</td>
+                <td class="border-2 border-gray-300 p-3">
+                    <input type="number" 
+                           step="0.01" 
+                           min="0" 
+                           max="20" 
+                           name="note_classe_{{ matiere.id }}" 
+                           value="{% if notes_existantes|filter_matiere_classe:matiere %}{{ notes_existantes|filter_matiere_classe:matiere }}{% else %}0.00{% endif %}"
+                           class="note-input">
+                </td>
+                <!-- ... (autres champs) ... -->
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <!-- Bouton de soumission -->
+    <div class="flex justify-end">
+        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            Générer le bulletin
+        </button>
+    </div>
+</form>
+{% endif %} {% endcomment %}
+
+
+<div class="row-span-2 bg-white shadow-md rounded-lg p-6 max-w-4xl mx-auto">
+    <!-- En-tête du bulletin -->
+    <!-- Panneau droit - Bulletin -->
+    <div class="lg:col-span-2 bg-white shadow-md rounded-lg p-6">
+        <!-- En-tête amélioré -->
+        <div class="mb-8 text-center border-b pb-4">
+            <div class="mb-2">
+                <img src="" alt="Logo" class="h-16 mx-auto mb-3">
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">LYCÉE DOWÈLE MARICO DE DIOILA</h2>
+            <p class="text-sm text-gray-600 mt-1">AE : DIOILA - Année scolaire 2024/2025</p>
+        </div>
+
+        <!-- Informations élève -->
+        {% if eleve %}
+        <div class="mb-8 p-4 bg-gray-50 rounded-lg shadow-sm">
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div class="space-y-1">
+                    <div class="font-medium text-gray-600">Nom complet:</div>
+                    <div class="text-gray-800">{{ eleve.nom }} {{ eleve.prenom }}</div>
+                </div>
+                <div class="space-y-1">
+                    <div class="font-medium text-gray-600">Classe:</div>
+                    <div class="text-gray-800">{{ eleve.classe.niveau }}ème {{ eleve.classe.section }}</div>
+                </div>
+                <div class="space-y-1">
+                    <div class="font-medium text-gray-600">Contact:</div>
+                    <div class="text-gray-800">{{ eleve.telephone }}</div>
+                </div>
+                <div class="space-y-1">
+                    <div class="font-medium text-gray-600">Résidence:</div>
+                    <div class="text-gray-800">{{ eleve.residence }}</div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            Sélectionnez un élève pour commencer
+        </div>
+        {% endif %}
+
+    <form method="POST" id="bulletinForm">
+        {% csrf_token %}
+        <div>
+            {% if periode_active %}
+            <p>{{ periode_active.date_debut }} au {{ periode_active.date_fin }}</p>
+            <!-- Autres utilisations -->
+        {% else %}
+            <p class="text-red-500">Aucune période active configurée !</p>
+        {% endif %}
+        </div>
+
+        {% if form.periode.value %}
+        {% with form.periode.value|get_periode_object as periode %}
+            {{ periode.nom }} - Du {{ periode.date_debut }} au {{ periode.date_fin }}
+            {% endwith %}
+        {% endif %}
+        
+        
+
+        <!-- Tableau des matières -->
+        {% if eleve %}
+        <div class="mb-6 overflow-x-auto">
+            <table class="w-full border-collapse border-2 border-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="border-2 border-gray-300 p-3 text-left">Matière</th>
+                        <th class="border-2 border-gray-300 p-3 text-center">Coefficient</th>
+                        <th class="border-2 border-gray-300 p-3 text-center">Note_classe/20</th>
+                        <th class="border-2 border-gray-300 p-3 text-center">Note_comp/40</th>
+                        <th class="border-2 border-gray-300 p-3 text-center">Moyenne Coefficient</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for matiere in matieres_classe %}
+                    <tr class="hover:bg-gray-50" data-matiere="{{ matiere.id }}">
+                        <td class="border-2 border-gray-300 p-3">{{ matiere.nom }}</td>
+                        <td class="border-2 border-gray-300 p-3 text-center coefficient">{{ matiere.coefficient }}</td>
+                        <!-- Note de classe -->
+                        <td class="border-2 border-gray-300 p-3">
+                            <input type="number" 
+                                readonly=true
+                                step="0.01" 
+                                min="0" 
+                                max="20" 
+                                name="note_classe_{{ matiere.id }}" 
+                                class="w-full text-center border rounded py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                value="{% if notes_existantes|filter_matiere_classe:matiere %}{{ notes_existantes|filter_matiere_classe:matiere }}{% else %}0.00{% endif %}"
+                                placeholder="0.00"
+                                oninput="calculerMoyenneInstantanee()">
+                        </td>
+                
+                        <!-- Note d'examen -->
+                        <td class="border-2 border-gray-300 p-3">
+                            <input type="number" 
+                                readonly=true
+                                step="0.01" 
+                                min="0" 
+                                max="40" 
+                                name="note_exam_{{ matiere.id }}" 
+                                class="w-full text-center border rounded py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                value="{% if notes_existantes_E|filter_matiere_examen:matiere %}{{ notes_existantes_E|filter_matiere_examen:matiere }}{% else %}0.00{% endif %}"
+                                placeholder="0.00"
+                                oninput="calculerMoyenneInstantanee()">
+                        </td>
+                
+                        <!-- Moyenne coefficient -->
+                        <td class="border-2 border-gray-300 p-3 text-center moyenne-coeff">
+                            {{ moyennes_coefficient|get_item:matiere.id|default:"-" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                
+                    <!-- Ligne de la moyenne générale -->
+                    <tr>
+                        <td colspan="4" class="text-right font-bold">Moyenne Générale :</td>
+                        <td class="text-center font-bold" id="moyenne-generale">
+                            {{ moyenne_generale|default:"-" }}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td colspan="4" class="text-right font-bold">Classement dans la classe :</td>
+                        <td class="text-center font-bold">
+                            {% if classement %}
+                                {{ classement.classement }}<sup>e</sup>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Appréciation -->
+        <div class="mb-4">
+            <label class="block font-medium mb-2">Appréciation générale :</label>
+            {{ form.appreciation }}
+            {% if form.appreciation.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ form.appreciation.errors }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="flex justify-end">
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Générer le bulletin
+            </button>
+        </div>
+    </form>
+</div>

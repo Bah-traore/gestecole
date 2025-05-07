@@ -1,0 +1,92 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="examen-detail">
+    <h1>{{ examen.nom }}</h1>
+    
+    <div class="examen-info mb-4">
+        <div class="card">
+            <div class="card-body">
+                <p>Matière : <strong>{{ examen.matieres.nom }}</strong></p>
+                <p>Classe : <strong>Classe {{ examen.classe.niveau }}{{ examen.classe.section }}</strong></p>
+                <p>Date : <strong>{{ examen.date|date:"d/m/Y" }}</strong></p>
+                <p>Coefficient : <strong>{{ examen.coefficient }}</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5>Moyenne</h5>
+                        <h2>{{ moyenne_generale }}/20</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5>Meilleure note</h5>
+                        <h2>{{ note_max }}/20</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <h5>Note la plus basse</h5>
+                        <h2>{{ note_min }}/20</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>Notes des élèves</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Élève</th>
+                <th>Note</th>
+                <th>Appréciation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for note in notes_examen %}
+            <tr>
+                <td>{{ note.eleve.prenom }} {{ note.eleve.nom }}</td>
+                <td>{{ note.note }}/20</td>
+                <td>
+                    {% if note.note >= 16 %} Excellent
+                    {% elif note.note >= 14 %} Très bien
+                    {% elif note.note >= 12 %} Bien
+                    {% elif note.note >= 10 %} Satisfaisant
+                    {% else %} Insuffisant
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">Aucune note saisie</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+
+{% comment %} {% if user.role in ['DIRECTEUR', 'CENSEUR'] %}
+<form method="post" action="{% url 'modifier_statut_examen' examen.id %}">
+    {% csrf_token %}
+    <select name="validite">
+        <option value="EN_COURS" {% if examen.validite == 'EN_COURS' %}selected{% endif %}>En cours</option>
+        <option value="FIN" {% if examen.validite == 'FIN' %}selected{% endif %}>Terminé</option>
+    </select>
+    <button type="submit" class="btn btn-warning">Modifier le statut</button>
+</form>
+{% endif %} {% endcomment %}
+
+
+</div>
+{% endblock %}

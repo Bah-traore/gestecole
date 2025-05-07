@@ -1,0 +1,77 @@
+{% extends 'base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Historique des Paiements</h1>
+
+        <a href="{% url 'enregistrer_paiement_especes' eleve.id %}" class="btn btn-success mb-4">
+            <i class="fas fa-plus"></i> Ajouter un paiement
+        </a>
+
+        <a href="{% url 'gestion_paiements' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
+            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="m-0 font-weight-bold text-primary">{{ eleve.get_full_name }}</h6>
+                    <small>Classe {{ eleve.classe.niveau }}{{ eleve.classe.section }}</small>
+                </div>
+                <div class="col-md-6 text-right">
+                    <span class="badge badge-{% if eleve.suspendu %}danger{% else %}success{% endif %}">
+                        Statut: {% if eleve.suspendu %}Suspendu{% else %}Actif{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Période</th>
+                            <th>Montant</th>
+                            <th>Moyen</th>
+                            <th>Statut</th>
+                            <th>Transaction ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for paiement in paiements %}
+                        <tr>
+                            <td>{{ paiement.date_paiement|date:"d/m/Y H:i" }}</td>
+                            <td>{{ paiement.periode.nom }}</td>
+                            <td>{{ paiement.montant_paye|intcomma }} FCFA</td>
+                            <td>
+                                <span class="badge badge-{% if paiement.mode_paiement == 'ORANGE' %}warning{% else %}info{% endif %}">
+                                    {{ paiement.get_mode_paiement_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if paiement.statut %}
+                                <span class="badge badge-success"><i class="fas fa-check"></i> Réussi</span>
+                                {% else %}
+                                <span class="badge badge-danger"><i class="fas fa-times"></i> Échoué</span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ paiement.transaction_id }}</code></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">Aucun historique de paiement</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

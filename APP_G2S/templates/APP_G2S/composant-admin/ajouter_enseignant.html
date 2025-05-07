@@ -1,0 +1,58 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-6">Ajouter un Enseignant</h2>
+    <a href="{% url 'dashboard_eleve' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
+        <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+    </a>
+    <form method="POST" enctype="multipart/form-data" class="space-y-4">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Nom complet -->
+            <div class="space-y-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ form.nom_complet.label }}
+                </label>
+                {{ form.nom_complet }}
+                {{ form.nom_complet.errors }}
+            </div>
+
+            <!-- Téléphone -->
+            <div class="space-y-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ form.telephone.label }}
+                </label>
+                {{ form.telephone }}
+                {{ form.telephone.errors }}
+            </div>
+
+            <!-- Matières enseignées -->
+            <div class="space-y-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ form.matieres.label }}
+                </label>
+                {{ form.matieres }}
+                {{ form.matieres.errors }}
+            </div>
+
+            <!-- Photo de profil -->
+            <div class="space-y-1">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ form.profile_picture.label }}
+                </label>
+                {{ form.profile_picture }}
+                {{ form.profile_picture.errors }}
+            </div>
+        </div>
+
+        <!-- Bouton submit -->
+        <div class="mt-6">
+            <button type="submit" class="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                Ajouter Enseignant
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

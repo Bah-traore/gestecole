@@ -1,0 +1,47 @@
+{% extends 'base_admin.html' %}
+
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg p-6">
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-bold mb-4">Liste des Bulletins</h1>
+            <a href="{% url 'dashboard_eleve' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
+                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+            </a>
+        </div>
+        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <a href="{% url 'ajouter_bulletin' %}" class="btn btn-primary">
+                Ajouter des Bulletins
+            </a>
+        </div>
+
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white border border-gray-200">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b">Élève</th>
+                    <th class="py-2 px-4 border-b">Moyenne Générale</th>
+                    <th class="py-2 px-4 border-b">Appréciation</th>
+                    <th class="py-2 px-4 border-b">Date de Création</th>
+                    <th class="py-2 px-4 border-b">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bulletin in bulletins %}
+                <tr>
+                    <td class="py-2 px-4 border-b">{{ bulletin.eleve }}</td>
+                    <td class="py-2 px-4 border-b">{{ bulletin.moyenne_generale }}</td>
+                    <td class="py-2 px-4 border-b">{{ bulletin.appreciation|default:"Aucune" }}</td>
+                    <td class="py-2 px-4 border-b">{{ bulletin.date_creation }}</td>
+                    <td class="py-2 px-4 border-b">
+                        <a href="{% url 'detail_bulletin' bulletin.id %}" class="text-blue-500 hover:text-blue-700">Détails</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

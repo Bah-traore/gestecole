@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tableau de bord ADMINISTRATION</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        /* Styles personnalisés */
+        .sidebar-enter {
+            transition: transform 0.3s ease-out;
+        }
+        .sidebar-enter-active {
+            transform: translateX(0);
+        }
+        .sidebar-enter-from {
+            transform: translateX(-100%);
+        }
+
+        :root {
+            --primary-soft: #e3f2fd;
+            --success-soft: #d1e7dd;
+            --danger-soft: #f8d7da;
+        }
+        
+        .bg-primary-soft { background-color: var(--primary-soft); }
+        .bg-success-soft { background-color: var(--success-soft); }
+        .bg-danger-soft { background-color: var(--danger-soft); }
+        
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+            transform: scale(1.005);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background-image: linear-gradient(to right, #0061ff, #60efff);
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(0,97,255,0.3);
+        }
+
+        .table-responsive {
+            min-height: 400px;
+        }
+        
+        .cours-row td {
+            vertical-align: middle;
+            transition: all 0.3s ease;
+        }
+        
+        .cours-row:hover td:not(:first-child) {
+            transform: translateX(5px);
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 fixed w-full z-50">
+        <div class="mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Mobile menu button -->
+                <div class="flex-shrink-0 flex items-center md:hidden">
+                    <button @click="sidebarOpen = true"
+                            class="text-gray-500 hover:text-gray-600 focus:outline-none focus:text-gray-600">
+                        <i class="fas fa-bars fa-lg"></i>
+                    </button>
+                </div>
+
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="{% url 'dashboard_admin' %}" class="text-xl font-bold text-blue-600">
+                        <i class="fas fa-school  mr-2"></i> Etablissement
+                    </a>
+                </div>
+
+                <!-- Desktop menu -->
+                <div class="hidden md:flex items-center">
+                    <a href="{% url 'dashboard_admin' %}"
+                       class="text-sm font-medium text-gray-600 hover:text-blue-600 px-3 py-2 rounded-lg">
+                        Accueil
+                    </a>
+<!--                    <button onclick="document.getElementById('logout-form').submit()"-->
+<!--                            class="ml-4 text-white bg-red-500 hover:bg-red-600 px-3 py-2 rounded-lg focus:outline-none">-->
+<!--                        <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion-->
+<!--                    </button>-->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar mobile -->
+    <div x-data="{ sidebarOpen: false }"
+         x-show="sidebarOpen"
+         @keydown.escape.window="sidebarOpen = false"
+         class="fixed inset-0 z-40 md:hidden"
+         style="display: none;">
+
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-black bg-opacity-50"
+             @click="sidebarOpen = false"></div>
+
+
+        <div class="relative bg-white h-full w-72">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-800">Menu</h3>
+                <button @click="sidebarOpen = false"
+                        class="text-gray-500 hover:text-gray-600 focus:outline-none">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+            <div class="mt-4">
+                <nav class="px-2">
+                    <a href=""
+                       class="block px-2 py-2 text-gray-800 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-users mr-2"></i>
+                    </a>
+                    <a href=""
+                       class="block px-2 py-2 mt-1 text-gray-800 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-user-plus mr-2"></i>
+                    </a>
+                    <button onclick="document.getElementById('logout-form').submit()"
+                            class="w-full text-left block px-2 py-2 mt-4 text-white bg-red-500 hover:bg-red-600 rounded-lg">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Déconnexion
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar desktop -->
+    <aside class="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-64 z-40">
+        <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
+            <div class="flex items-center h-16 px-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-800">Tableau de bord</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+                <nav class="px-2 py-4">
+                    <a href="{% url 'dashboard_eleve' %}"
+                       class="group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-book mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        gestion des élèves
+                    </a>
+
+
+                    <a href="{% url 'gestion_paiements' %}"
+                       class="mt-1 group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fa-regular fa-circle-xmark mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Comptable
+                    </a>
+                    <a href="{% url 'gestion_periodes' %}"
+                       class="mt-1 group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fa-regular fa-circle-xmark mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        periode
+                    </a>
+                </nav>
+            </div>
+            <div class="flex-shrink-0 flex border-t border-gray-200 p-4">
+                <button onclick="document.getElementById('logout-form').submit()"
+                        class="flex-shrink-0 w-full group flex items-center px-2 py-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 hover:text-red-700">
+                    <i class="fas fa-sign-out-alt mr-3 text-red-400 group-hover:text-red-500"></i>
+                    Déconnexion
+                </button>
+            </div>
+        </div>
+    </aside>
+
+
+    <main class="md:pl-64 pt-16 h-screen overflow-y-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {% block content %}
+            
+            {% endblock %}
+        </div>
+    </main>
+
+    <form id="logout-form" action="{% url 'logout_admin' %}" method="POST" class="hidden">
+        {% csrf_token %}
+    </form>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('sidebar', () => ({
+                sidebarOpen: false,
+                init() {
+                    this.$watch('sidebarOpen', (value) => {
+                        document.body.style.overflow = value ? 'hidden' : 'auto'
+                    })
+                }
+            }))
+        })
+
+
+    $(document).ready(function() {
+        $('.select2').select2({
+            placeholder: "Sélectionnez une ou plusieurs matières",
+            allowClear: true
+        });
+    });
+    </script>
+    <!-- Avant la fermeture du body -->
+
+

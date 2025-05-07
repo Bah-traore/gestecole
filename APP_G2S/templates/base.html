@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        {% load static %}
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Gestion École</title>
+        <link rel="stylesheet" href="{% static 'APP_G2S/css/connexion.css' %}">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: '#2563EB',
+                            secondary: '#10B981',
+                            danger: '#EF4444'
+                        }
+                    }
+                }
+            }
+        </script>
+    </head>
+
+    <body>
+        <nav class="bg-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="text-2xl font-bold text-blue-700">Nom ou logo École</div>
+                </div>
+            </div>
+            <div class="mx-auto flex justify-end px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center space-x-4">
+                    <img src="https://randomuser.me/api/portraits" class="w-10 h-10 rounded-full border-2 border-primary">
+                    <button class="text-danger hover:text-red-700 focus:outline-none">Déconnexion</button>
+                </div>
+            </div>
+                            
+
+        </nav>
+
+
+
+
+    </body>
+
+
+    </html>
+
+
+
+
+
+<!--<!DOCTYPE html>-->
+<!--<html lang="fr">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Gestion École</title>-->
+<!--    <script src="https://cdn.tailwindcss.com"></script>-->
+<!--    <script>-->
+<!--        tailwind.config = {-->
+<!--            theme: {-->
+<!--                extend: {-->
+<!--                    colors: {-->
+<!--                        primary: '#2563EB',-->
+<!--                        secondary: '#10B981',-->
+<!--                        danger: '#EF4444'-->
+<!--                    }-->
+<!--                }-->
+<!--            }-->
+<!--        }-->
+<!--    </script>-->
+<!--</head>-->
+<!--<body class="bg-gray-50">-->
+<!--    &lt;!&ndash; Barre de navigation &ndash;&gt;-->
+<!--    <nav class="bg-white shadow-md">-->
+<!--        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">-->
+<!--            <div class="flex justify-between h-16 items-center">-->
+<!--                <div class="text-2xl font-bold text-primary">École 4.0</div>-->
+<!--                <div class="flex items-center space-x-4">-->
+<!--                    <img src="https://randomuser.me/api/portraits/men/85.jpg"-->
+<!--                         class="w-10 h-10 rounded-full border-2 border-primary">-->
+<!--                    <button class="text-danger hover:text-red-700 focus:outline-none">Déconnexion</button>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </nav>-->
+
+<!--    &lt;!&ndash; Conteneur principal &ndash;&gt;-->
+<!--    <div class="flex min-h-screen">-->
+<!--        &lt;!&ndash; Menu latéral &ndash;&gt;-->
+<!--        <aside class="w-64 bg-white shadow-md pt-10">-->
+<!--            <nav class="space-y-4 px-4">-->
+<!--                <a href="#/"-->
+<!--                   class="block p-3 rounded-lg hover:bg-gray-100 transition-colors-->
+<!--                          flex items-center space-x-3 text-primary font-medium">-->
+<!--                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">-->
+<!--                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0H6a1 1 0 00-1 1v10a1 1 0 001 1h3m-6 0l2 2m0-2l-7-7" />-->
+<!--                    </svg>-->
+<!--                    <span>Tableau de bord</span>-->
+<!--                </a>-->
+<!--                <a href="#/eleves"-->
+<!--                   class="block p-3 rounded-lg hover:bg-gray-100 transition-colors-->
+<!--                          flex items-center space-x-3 text-gray-700">-->
+<!--                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">-->
+<!--                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />-->
+<!--                    </svg>-->
+<!--                    <span>Élèves</span>-->
+<!--                </a>-->
+<!--                <a href="#/enseignants"-->
+<!--                   class="block p-3 rounded-lg hover:bg-gray-100 transition-colors-->
+<!--                          flex items-center space-x-3 text-gray-700">-->
+<!--                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">-->
+<!--                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18s-3.332.477-4.5 1.253" />-->
+<!--                    </svg>-->
+<!--                    <span>Enseignants</span>-->
+<!--                </a>-->
+<!--                <a href="#/notes"-->
+<!--                   class="block p-3 rounded-lg hover:bg-gray-100 transition-colors-->
+<!--                          flex items-center space-x-3 text-gray-700">-->
+<!--                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">-->
+<!--                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />-->
+<!--                    </svg>-->
+<!--                    <span>Notes</span>-->
+<!--                </a>-->
+<!--                <a href="#/emplois"-->
+<!--                   class="block p-3 rounded-lg hover:bg-gray-100 transition-colors-->
+<!--                          flex items-center space-x-3 text-gray-700">-->
+<!--                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">-->
+<!--                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />-->
+<!--                    </svg>-->
+<!--                    <span>Emplois du temps</span>-->
+<!--                </a>-->
+<!--            </nav>-->
+<!--        </aside>-->
+
+<!--        &lt;!&ndash; Contenu principal &ndash;&gt;-->
+<!--        <main class="flex-1 p-6" id="page-content">-->
+<!--            &lt;!&ndash; Chargé dynamiquement &ndash;&gt;-->
+<!--        </main>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Modale &ndash;&gt;-->
+<!--    <div id="studentModal" class="hidden"></div>-->
+
+<!--    <script>-->
+<!--        // Données d'exemple-->
+<!--        const studentsData = [-->
+<!--            {-->
+<!--                id: 1,-->
+<!--                nom: "Dupont",-->
+<!--                prenom: "Jean",-->
+<!--                classe: "3ème A",-->
+<!--                parents: {-->
+<!--                    pere: "Dupont Marc",-->
+<!--                    mere: "Dupont Sophie",-->
+<!--                    contact: "06 12 34 56 78"-->
+<!--                },-->
+<!--                notes: {-->
+<!--                    math: { devoir: 15, examen: 17 },-->
+<!--                    francais: { devoir: 14, examen: 16 }-->
+<!--                },-->
+<!--                emploi: [-->
+<!--                    { jour: "Lundi", matiere: ["Math", "Français"] },-->
+<!--                    { jour: "Mardi", matiere: ["Anglais", "SVT"] }-->
+<!--                ],-->
+<!--                absences: [-->
+<!--                    { date: "2023-10-05", motif: "Maladie" },-->
+<!--                    { date: "2023-11-12", motif: "Raison familiale" }-->
+<!--                ]-->
+<!--            },-->
+<!--            {-->
+<!--                id: 2,-->
+<!--                nom: "Durand",-->
+<!--                prenom: "Lucie",-->
+<!--                classe: "4ème B",-->
+<!--                parents: {-->
+<!--                    pere: "Durant Pierre",-->
+<!--                    mere: "Durant Marie",-->
+<!--                    contact: "06 98 76 54 32"-->
+<!--                },-->
+<!--                notes: {-->
+<!--                    math: { devoir: 16, examen: 18 },-->
+<!--                    francais: { devoir: 15, examen: 17 }-->
+<!--                },-->
+<!--                emploi: [-->
+<!--                    { jour: "Mercredi", matiere: ["Physique", "Chimie"] }-->
+<!--                ],-->
+<!--                absences: []-->
+<!--            }-->
+<!--        ];-->
+
+<!--        // Composant Tableau de bord-->
+<!--        const Dashboard = () => `-->
+<!--            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <h3 class="text-xl font-medium text-gray-800">Total Élèves</h3>-->
+<!--                    <p class="text-3xl text-primary mt-4">${studentsData.length}</p>-->
+<!--                </div>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <h3 class="text-xl font-medium text-gray-800">Enseignants</h3>-->
+<!--                    <p class="text-3xl text-primary mt-4">25</p>-->
+<!--                </div>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <h3 class="text-xl font-medium text-gray-800">Matières</h3>-->
+<!--                    <p class="text-3xl text-primary mt-4">15</p>-->
+<!--                </div>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <h3 class="text-xl font-medium text-gray-800">Taux de réussite</h3>-->
+<!--                    <p class="text-3xl text-primary mt-4">92%</p>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        `;-->
+
+<!--        // Composant Élèves-->
+<!--        const Students = () => `-->
+<!--            <div>-->
+<!--                <h1 class="text-2xl font-bold mb-6">Gestion des Élèves</h1>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <div class="flex flex-col md:flex-row justify-between mb-6">-->
+<!--                        <input type="text" placeholder="Rechercher par nom..."-->
+<!--                               class="mb-4 md:mb-0 md:mr-4 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"-->
+<!--                               id="searchStudent">-->
+<!--                        <select class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"-->
+<!--                                id="filterClass">-->
+<!--                            <option value="">Toutes les classes</option>-->
+<!--                            <option value="3ème A">3ème A</option>-->
+<!--                            <option value="4ème B">4ème B</option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                    <table class="w-full table-auto" id="studentsTable">-->
+<!--                        <thead>-->
+<!--                            <tr class="bg-gray-50">-->
+<!--                                <th class="px-4 py-2">Nom</th>-->
+<!--                                <th class="px-4 py-2">Classe</th>-->
+<!--                                <th class="px-4 py-2">Dernière note</th>-->
+<!--                                <th class="px-4 py-2">Absences</th>-->
+<!--                            </tr>-->
+<!--                        </thead>-->
+<!--                        <tbody>-->
+<!--                            ${studentsData.map(student => `-->
+<!--                                <tr class="border-t cursor-pointer student-row" data-id="${student.id}">-->
+<!--                                    <td class="px-4 py-3">${student.nom} ${student.prenom}</td>-->
+<!--                                    <td class="px-4 py-3">${student.classe}</td>-->
+<!--                                    <td class="px-4 py-3">${student.notes.math.examen}/20</td>-->
+<!--                                    <td class="px-4 py-3">${student.absences.length}</td>-->
+<!--                                </tr>-->
+<!--                            `).join('')}-->
+<!--                        </tbody>-->
+<!--                    </table>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        `;-->
+
+<!--        // Composant Enseignants-->
+<!--        const Teachers = () => `-->
+<!--            <div>-->
+<!--                <h1 class="text-2xl font-bold mb-6">Gestion des Enseignants</h1>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <table class="w-full table-auto">-->
+<!--                        <thead>-->
+<!--                            <tr class="bg-gray-50">-->
+<!--                                <th>Nom</th>-->
+<!--                                <th>Matières</th>-->
+<!--                            </tr>-->
+<!--                        </thead>-->
+<!--                        <tbody>-->
+<!--                            <tr>-->
+<!--                                <td>Dupont</td>-->
+<!--                                <td>Math, Physique</td>-->
+<!--                            </tr>-->
+<!--                            <tr>-->
+<!--                                <td>Durand</td>-->
+<!--                                <td>Français, SVT</td>-->
+<!--                            </tr>-->
+<!--                        </tbody>-->
+<!--                    </table>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        `;-->
+
+<!--        // Composant Notes-->
+<!--        const Grades = () => `-->
+<!--            <div>-->
+<!--                <h1 class="text-2xl font-bold mb-6">Gestion des Notes</h1>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <table class="w-full table-auto">-->
+<!--                        <thead>-->
+<!--                            <tr class="bg-gray-50">-->
+<!--                                <th>Élève</th>-->
+<!--                                <th>Matière</th>-->
+<!--                                <th>Note</th>-->
+<!--                            </tr>-->
+<!--                        </thead>-->
+<!--                        <tbody>-->
+<!--                            <tr>-->
+<!--                                <td>Jean Dupont</td>-->
+<!--                                <td>Math</td>-->
+<!--                                <td>17/20</td>-->
+<!--                            </tr>-->
+<!--                            <tr>-->
+<!--                                <td>Lucie Durand</td>-->
+<!--                                <td>Français</td>-->
+<!--                                <td>16/20</td>-->
+<!--                            </tr>-->
+<!--                        </tbody>-->
+<!--                    </table>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        `;-->
+
+<!--        // Composant Emplois du temps-->
+<!--        const Timetables = () => `-->
+<!--            <div>-->
+<!--                <h1 class="text-2xl font-bold mb-6">Emplois du temps</h1>-->
+<!--                <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                    <table class="w-full table-auto">-->
+<!--                        <thead>-->
+<!--                            <tr class="bg-gray-50">-->
+<!--                                <th>Jour</th>-->
+<!--                                <th>Matières</th>-->
+<!--                            </tr>-->
+<!--                        </thead>-->
+<!--                        <tbody>-->
+<!--                            <tr>-->
+<!--                                <td>Lundi</td>-->
+<!--                                <td>Math, Français</td>-->
+<!--                            </tr>-->
+<!--                            <tr>-->
+<!--                                <td>Mardi</td>-->
+<!--                                <td>Anglais, SVT</td>-->
+<!--                            </tr>-->
+<!--                        </tbody>-->
+<!--                    </table>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        `;-->
+
+
+<!--          function navigate() {-->
+<!--            const path = window.location.hash.substring(1) || '/';-->
+<!--            let Component;-->
+<!--            switch(path) {-->
+<!--                case '/':-->
+<!--                    Component = Dashboard;-->
+<!--                    break;-->
+<!--                case '/eleves':-->
+<!--                    Component = Students;-->
+<!--                    break;-->
+<!--                case '/enseignants':-->
+<!--                    Component = Teachers;-->
+<!--                    break;-->
+<!--                case '/notes':-->
+<!--                    Component = Grades;-->
+<!--                    break;-->
+<!--                case '/emplois':-->
+<!--                    Component = Timetables;-->
+<!--                    break;-->
+<!--                default:-->
+<!--                    Component = Dashboard;-->
+<!--            }-->
+<!--            document.getElementById('page-content').innerHTML = Component();-->
+<!--        }-->
+
+<!--        // Initialisation-->
+<!--        document.addEventListener('DOMContentLoaded', () => {-->
+<!--            window.addEventListener('hashchange', navigate);-->
+<!--            navigate(); // Appel initial-->
+<!--        });-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->

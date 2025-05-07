@@ -1,0 +1,74 @@
+{% extends 'base_admin.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6">Ajouter une nouvelle classe</h2>
+    <a href="{% url 'ajouter_classe' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
+        <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+    </a>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Niveau</label>
+                {{ form.niveau }}
+                {% if form.niveau.errors %}
+                    <p class="text-red-500 text-xs italic">{{ form.niveau.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Section</label>
+                {{ form.section }}
+                {% if form.section.errors %}
+                    <p class="text-red-500 text-xs italic">{{ form.section.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Responsable</label>
+            {{ form.responsable }}
+            {% if form.responsable.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.responsable.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">matiere</label>
+            {{ form.matieres }}
+            {% if form.matieres.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.matieres.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center justify-end mt-6">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Enregistrer
+            </button>
+        </div>
+    </form>
+    
+</div>
+
+<script>
+
+    {% if messages %}
+    {% for message in messages %}
+        showToast('{{ message }}', 'success');
+    {% endfor %}
+{% endif %}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-20 right-4 p-4 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script> 
+{% endblock %}

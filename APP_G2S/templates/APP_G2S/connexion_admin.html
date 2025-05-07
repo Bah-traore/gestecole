@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion ADMIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+
+    <div class="w-full max-w-md">
+
+        <div class="bg-white shadow-lg rounded-lg p-6 space-y-6">
+            <h2 class="text-2xl font-bold text-center text-green-700">Connexion ADMINISTRATION</h2>
+
+            <!-- Form -->
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+
+                {% for field in form %}
+                    <div class="flex flex-col space-y-1">
+                        <label for='{{ field.id_for_label }}' class="font-medium text-gray-700">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <p class="text-red-500 text-sm">{{ field.errors }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="w-full py-3 px-4 bg-green-700 text-white font-semibold rounded-lg hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-opacity-50 transition duration-300">
+                    Se connecter
+                </button>
+            </form>
+
+            {% if messages %}
+                <div class="space-y-2">
+                    {% for message in messages %}
+                        <div class="px-4 py-2 rounded-lg text-white font-medium bg-red-600">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</body>
+</html>

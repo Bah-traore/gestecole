@@ -1,0 +1,28 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<h1>Gestion des Enseignants</h1>
+<a href="{% url 'ajouter_enseignant' %}" class="btn btn-primary">Ajouter</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nom complet</th>
+            <th>Téléphone</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for enseignant in enseignants %}
+        <tr>
+            <td>{{ enseignant.nom_complet }}</td>
+            <td>{{ enseignant.telephone }}</td>
+            <td>
+                <a href="{% url 'modifier_enseignant' enseignant.id %}" class="btn btn-warning">Modifier</a>
+                <a href="{% url 'supprimer_enseignant' enseignant.id %}" class="btn btn-danger">Supprimer</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

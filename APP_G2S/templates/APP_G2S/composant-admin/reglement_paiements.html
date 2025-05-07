@@ -1,0 +1,66 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Initier un Paiement Mobile</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" id="paymentForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label>Période de Paiement</label>
+                    {{ form.periode }}
+                </div>
+
+                <div class="form-group">
+                    <label>Montant à Payer</label>
+                    <div class="input-group">
+                        <input type="number" 
+                               class="form-control"
+                               name="montant_paye"
+                               value="{{ form.montant_paye.value|default:0 }}"
+                               step="100"
+                               min="0"
+                               required>
+                        <div class="input-group-append">
+                            <span class="input-group-text">FCFA</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Opérateur Mobile</label>
+                    <div class="row">
+                        {% for choice in form.mode_paiement %}
+                        <div class="col-md-6 mb-3">
+                            <div class="custom-control custom-radio">
+                                {{ choice.tag }}
+                                <label class="custom-control-label" for="{{ choice.id_for_label }}">
+                                    {% if choice.choice_label == 'Orange Money' %}
+                                    <i class="fab fa-orange"></i> Orange Money
+                                    {% else %}
+                                    <i class="fas fa-mobile-alt"></i> Malitel M-Money
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Vous serez redirigé vers la plateforme de paiement sécurisé de l'opérateur
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-lock"></i> Payer maintenant
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Colonne principale -->
+        <div class="col-md-10 offset-md-1">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="mb-0">Gestion des Absences</h2>
+                        <a href="{% url 'ajouter_absence' %}" class="btn btn-success d-flex align-items-center">
+                            <i class="bi bi-plus-circle me-2"></i> Ajouter une absence
+                        </a>
+                    </div>
+
+                    <!-- Filtres -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">Filtrer les absences</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="get" class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="eleve" class="form-label">Élève</label>
+                                    <select name="eleve" id="eleve" class="form-select">
+                                        <option value="">Tous les élèves</option>
+                                        {% for eleve in eleves %}
+                                        <option value="{{ eleve.id }}" {% if request.GET.eleve == eleve.id|stringformat:"s" %}selected{% endif %}>
+                                            {{ eleve.prenom }} {{ eleve.nom }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="date" class="form-label">Date</label>
+                                    <input type="date" name="date" id="date" class="form-control" value="{{ request.GET.date }}">
+                                </div>
+                                <div class="col-12 text-end">
+                                    <button type="submit" class="btn btn-primary me-2">
+                                        <i class="bi bi-funnel me-2"></i>Filtrer
+                                    </button>
+                                    <a href="{% url 'liste_absences' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-counterclockwise me-2"></i>Réinitialiser
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Actions et Export -->
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <a href="{% url 'pdf_absences' %}" class="btn btn-danger me-2">
+                                <i class="bi bi-file-pdf me-2"></i>Exporter en PDF
+                            </a>
+                            <a href="{% url 'excel_absences' %}" class="btn btn-success">
+                                <i class="bi bi-file-earmark-excel me-2"></i>Exporter en Excel
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Tableau -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Élève</th>
+                                    <th>Date</th>
+                                    <th>Cours</th>
+                                    <th>Motif</th>
+                                    <th>Statut</th>
+                                    <th>Justificatif</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for absence in absences %}
+                                <tr>
+                                    <td>{{ absence.eleve }}</td>
+                                    <td>{{ absence.date|date:"d/m/Y" }}</td>
+                                    <td>{{ absence.emploi_du_temps.matiere }}</td>
+                                    <td>{{ absence.motif|default:"<span class='text-muted'>-</span>"|safe }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ absence.justification_status|lower }} text-white">
+                                            {{ absence.get_justification_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if absence.justification_document %}
+                                            <a href="{{ absence.justification_document.url }}" target="_blank" class="text-decoration-none" title="Voir le justificatif">
+                                                <i class="bi bi-file-text display-6"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'modifier_absence' absence.id %}" class="btn btn-sm btn-primary" aria-label="Modifier l'absence">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        Aucune absence trouvée selon les critères sélectionnés.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

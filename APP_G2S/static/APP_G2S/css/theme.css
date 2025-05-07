@@ -1,0 +1,40 @@
+/* Animations personnalisées */
+@keyframes skeleton-wave {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton-loader {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-wave 1.5s linear infinite;
+}
+
+.dark .skeleton-loader {
+    background: linear-gradient(90deg, #2d3748 25%, #4a5568 50%, #2d3748 75%);
+}
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Adaptations dark mode */
+.dark .bulletin-section {
+    border-color: #4a5568;
+}
+
+.dark input[type="number"] {
+    background-color: #2d3748;
+    border-color: #4a5568;
+    color: #cbd5e0;
+}
+
+.dark .moyenne-display {
+    background: #2d3748;
+    border-color: #4a5568;
+}

@@ -1,0 +1,134 @@
+{% extends "base_admin.html" %}
+
+{% block content %}
+<main class="bg-gray-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        
+        <div class="sm:flex sm:items-center">
+            <div class="sm:flex-auto">
+                <h1 class="text-2xl font-bold mb-6 text-gray-800">Gestion des élèves</h1>
+                </div>
+            <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                <a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">
+                    Ajouter un eleve
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-4">
+            
+            <div class="bg-gray-800 text-white p-6 rounded-lg">
+                <h3 class="text-lg font-bold mb-4 text-center">Recherche d'élèves</h3>
+                <form method="get" action="" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Recherche par nom</label>
+                        <input type="text" id="searchInput" placeholder="Nom ou prénom" 
+                               class="w-full px-3 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Classe</label>
+                        <select name="class" class="w-full px-3 py-2 rounded-lg bg-gray-700 text-white" id="classSelect">
+                            <option value="">Toutes</option>
+                            {% for classe in classes_uniques %}
+                            
+                                <option value="{{ classe.id }}">{{ classe.niveau }} annee</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                        Rechercher
+                    </button>
+                </form>
+            </div>
+
+            <!-- Liste des élèves -->
+            <div class="p-6">
+                <h2 id="studentCounter" class="text-xl font-bold mb-4 text-gray-800">Liste des élèves ({{ eleves.count }})</h2>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-gray-600 font-medium">Nom</th>
+                                <th class="py-3 px-4 text-left text-gray-600 font-medium">Prénom</th>
+                                <th class="py-3 px-4 text-left text-gray-600 font-medium">Classe</th>
+                                <th class="py-3 px-4 text-left text-gray-600 font-medium">Section</th>
+                                <th class="py-3 px-4 text-left text-gray-600 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listeTable" class="divide-y divide-gray-200">
+                            {% for eleve in eleves %}
+                            <tr class="{% cycle 'bg-white' 'bg-gray-50' %} hover:bg-gray-50 transition duration-150" 
+                            data-search="{{ eleve.nom|lower }} {{ eleve.prenom|lower }}"
+                            data-class="{{ eleve.classe.id }}">
+                                    <td class="py-3 px-4">{{ eleve.nom }}</td>
+                                    <td class="py-3 px-4">{{ eleve.prenom }}</td>
+                                    <td class="py-3 px-4">{{ eleve.classe.niveau }} annee</td>
+                                    <td class="py-3 px-4">{{eleve.classe.section|upper}}</td>
+                                    <td class="py-3 px-4">
+                                        <a href="{% url 'detail_eleve' eleve.id %}" 
+                                           class="text-blue-600 hover:text-blue-800 font-medium">
+                                            Voir détail
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const classSelect = document.querySelector('select[name="class"]');
+        const form = document.querySelector('form');
+        const rows = document.querySelectorAll('#listeTable tr');
+        const counterElement = document.querySelector('h2'); // Sélectionnez l'élément du compteur
+
+        function filterStudents() {
+            const searchValue = searchInput.value.toLowerCase();
+            const selectedClass = classSelect.value;
+
+            let visibleCount = 0; // Compteur pour les élèves visibles
+
+            rows.forEach(row => {
+                const rowSearchData = row.getAttribute('data-search').toLowerCase();
+                const rowClass = row.getAttribute('data-class');
+
+                const classMatch = selectedClass === '' || rowClass === selectedClass;
+                const searchMatch = searchValue === '' || rowSearchData.includes(searchValue);
+
+                if (classMatch && searchMatch) {
+                    row.style.display = ''; // Afficher la ligne
+                    visibleCount++; // Incrémenter le compteur
+                } else {
+                    row.style.display = 'none'; // Masquer la ligne
+                }
+            });
+
+            // Mettre à jour le texte du compteur
+            counterElement.textContent = `Liste des élèves (${visibleCount} sur ${rows.length})`;
+        }
+
+        // Écouteurs d'événements
+        searchInput.addEventListener('input', filterStudents);
+        classSelect.addEventListener('change', filterStudents);
+
+        // Empêcher le rechargement de la page
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            filterStudents();
+        });
+
+        // Initialiser le compteur au chargement de la page
+        filterStudents();
+    });
+</script>
+{% endblock %}

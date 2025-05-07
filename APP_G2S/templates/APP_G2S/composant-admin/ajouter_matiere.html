@@ -1,0 +1,51 @@
+{% extends 'base_admin.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6">Ajouter une nouvelle matière</h2>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Nom de la matière</label>
+            {{ form.nom }}
+            {% if form.nom.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.nom.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Coefficient</label>
+            {{ form.coefficient }}
+            {% if form.coefficient.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.coefficient.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center justify-end">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Enregistrer
+            </button>
+        </div>
+    </form>
+
+    {% if messages %}
+    {% for message in messages %}
+        showToast('{{ message }}', 'success');
+    {% endfor %}
+{% endif %}
+
+<script>
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerText = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    }
+</script>
+
+</div>
+{% endblock %}

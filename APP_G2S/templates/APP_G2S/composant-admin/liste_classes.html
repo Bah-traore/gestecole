@@ -1,0 +1,47 @@
+{% extends 'base_admin.html' %}
+{% block content %}
+<div class="px-4 sm:px-6 lg:px-8">
+
+    <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+            <h1 class="text-xl font-semibold text-gray-900">Liste des classes</h1>
+        </div>
+        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+            <a href="{% url 'ajouter_classe' %}" class="btn btn-primary">
+                Ajouter une classe
+            </a>
+        </div>
+    </div>
+    
+    <div class="mt-8 overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Niveau</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsable</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for classe in classes %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ classe.niveau }}ème</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ classe.get_section_display }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if classe.responsable %}
+                            {{ classe.responsable.nom_complet }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <a href="{% url 'modifier_classe' classe.id %}" class="text-indigo-600 hover:text-indigo-900">Modifier</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

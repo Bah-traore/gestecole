@@ -1,0 +1,154 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4 mb-4">Gestion des emplois du temps</h1>
+
+    {% if form.errors %}
+<div class="alert alert-danger">
+    {% for field, errors in form.errors.items %}
+        {% for error in errors %}
+            <p>{{ error }}</p>
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endif %}
+
+    <div class="card shadow-lg mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-plus-circle me-2"></i>Ajouter un nouveau cours
+        </div>
+        <div class="card-body">
+            <form method="post" class="timetable-form">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Heure début</th>
+                                <th>Heure fin</th>
+                                <th>Classe</th>
+                                <th>recurrence</th>
+                                <th>Matière</th>
+                                <th>Enseignant</th>
+                                <th>Salle</th>
+                                <th width="100">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="form-row">
+                                <td>{{ form.date }}</td>
+                                <td>{{ form.start_time }}</td>
+                                <td>{{ form.end_time }}</td>
+                                <td>{{ form.classe }}</td>
+                                <td>{{ form.recurrence }}</td>
+                                <td>{{ form.matiere }}</td>
+                                <td>{{ form.enseignant }}</td>
+                                <td>{{ form.salle }}</td>
+                                <td>
+                                    <button type="submit" class="btn btn-success btn-sm w-100">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- les emplois existant -->
+
+    <div class="card shadow-lg">
+        <div class="card-header bg-secondary text-white">
+            <i class="fas fa-table me-2"></i>Planning existant
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Créneau</th>
+                            <th>Classe</th>
+                            <th>Matière</th>
+                            <th>Enseignant</th>
+                            <th>Salle</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emploi in emplois %}
+                        <tr>
+                            <td>{{ emploi.date|date:"d/m/Y" }}</td>
+                            <td>{{ emploi.start_time|time:"H:i" }} - {{ emploi.end_time|time:"H:i" }}</td>
+                            <td>{{ emploi.classe.nom }}</td>
+                            <td>{{ emploi.matieres.nom }}</td>
+                            <td>{{ emploi.enseignant.nom_complet }}</td>
+                            <td>{{ emploi.salle }}</td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-warning me-1">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="#" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="fas fa-calendar-times fa-2x mb-2"></i><br>
+                                Aucun cours programmé
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timetable-form input, 
+.timetable-form select {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid #ced4da;
+}
+
+.timetable-form .form-row:hover {
+    background-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+</style>
+
+<script>
+    // Afficher un toast si l'emploi du temps a été ajouté avec succès
+    {% if messages %}
+        {% for message in messages %}
+            showToast('{{ message }}', 'success');
+        {% endfor %}
+    {% endif %}
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 p-4 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+    </script>
+
+{% endblock %}
