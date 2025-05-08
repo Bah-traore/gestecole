@@ -16,6 +16,8 @@ from pathlib import Path
 
 from celery.schedules import crontab
 
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,30 +30,24 @@ SECRET_KEY = 'django-insecure-zx5jum*sd6)0czg=aky##kyr21eh7i8@he&1x#&xq_yy552#3v
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
-
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Ou l'URL de votre broker
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Europe/Paris'
-CELERY_BEAT_SCHEDULE = {
-    'update-exam-status': {
-        'task': 'APP_G2S.tasks.update_exam_status',
-        'schedule': crontab(hour=0, minute=5),  # Tous les jours à 00:05
-    },
-    'verification-impayes': {
-            'task': 'APP_G2S.tasks.verifier_impayes',
-            'schedule': crontab(hour=8, minute=0),  # Tous les jours à 8h
-        },
-}
-
-
+#
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Ou l'URL de votre broker
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_TIMEZONE = 'Europe/Paris'
+# CELERY_BEAT_SCHEDULE = {
+#     'update-exam-status': {
+#         'task': 'APP_G2S.tasks.update_exam_status',
+#         'schedule': crontab(hour=0, minute=5),  # Tous les jours à 00:05
+#     },
+#     'verification-impayes': {
+#             'task': 'APP_G2S.tasks.verifier_impayes',
+#             'schedule': crontab(hour=8, minute=0),  # Tous les jours à 8h
+#         },
+# }
 
 
-
-
-# Clés API Mobile Money
-# Configuration SMS
 SMS_PROVIDER = 'ORANGE'  # ou 'MALITEL'
 SMS_SENDER_ID = 'ECOLEXYZ'  # ID approuvé par l'opérateur
 ORANGE_API_KEY = 'votre_cle_api_orange'
@@ -157,6 +153,7 @@ SIMPLE_JWT = {
 
 MIDDLEWARE = [
         'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -223,6 +220,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
@@ -247,13 +248,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(PROJECT_ROOT, 'utils'))
-
-
-
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Pour Redis
-# CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'  # Pour RabbitMQ
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-CELERY_TIMEZONE = "Africa/Bamako"  # Ajustez selon votre fuseau
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
 
