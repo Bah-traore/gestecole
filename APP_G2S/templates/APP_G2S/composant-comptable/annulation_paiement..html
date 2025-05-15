@@ -1,0 +1,24 @@
+{% extends "base_admin.html" %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Annulation du paiement #{{ object.numero_quittance }}</h2>
+  
+  <div class="alert alert-warning" role="alert">
+    <h4 class="alert-heading">Confirmation requise</h4>
+    <p>Vous êtes sur le point d'annuler ce paiement :</p>
+    <ul>
+      <li>Montant : {{ object.montant_paye }} FCFA</li>
+      <li>Date : {{ object.date_paiement }}</li>
+      <li>Mode : {{ object.get_mode_paiement_display }}</li>
+    </ul>
+    <p class="mb-0">Cette action est irréversible. Êtes-vous sûr ?</p>
+  </div>
+  
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Confirmer l'annulation</button>
+    <a href="{% url 'caisse-dashboard' %}" class="btn btn-secondary">Annuler</a>
+  </form>
+</div>
+{% endblock %}

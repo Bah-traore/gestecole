@@ -8,46 +8,25 @@ from APP_G2S.models import Administrateur, Eleve
 
 
 #
-class Super_AgentBackend(ModelBackend):
-    def authenticate(self, request, identifiant=None, password=None, **kwargs):
-        User = get_user_model()
-
-
-        try:
-            user = Administrateur.objects.get(identifiant=identifiant)
-            if user.check_password(password):
-                return user
-        except Administrateur.DoesNotExist:
-            return None
-
-
-    def get_user(self, user_id):
-        try:
-            return Administrateur.objects.get(pk=user_id)
-        except Administrateur.DoesNotExist:
-            return None
-
-# User = get_user_model()
-#
-# class AdministrationBackend(ModelBackend):
+# class Super_AgentBackend(ModelBackend):
 #     def authenticate(self, request, identifiant=None, password=None, **kwargs):
-#         print("mes variables :", identifiant, password)
+#         User = get_user_model()
+#
+#
 #         try:
-#             user = Administration.objects.get(identifiant=identifiant)
-#             print(user)
-#             print(password)
-#             print(user.password)
-#             if check_password(password, user.password):
+#             user = Administrateur.objects.get(identifiant=identifiant)
+#             if user.check_password(password):
 #                 return user
-#         except Administration.DoesNotExist:
+#         except Administrateur.DoesNotExist:
 #             return None
 #
 #
 #     def get_user(self, user_id):
 #         try:
-#             return Administration.objects.get(pk=user_id)
-#         except Administration.DoesNotExist:
+#             return Administrateur.objects.get(pk=user_id)
+#         except Administrateur.DoesNotExist:
 #             return None
+
 
 class AdministrationBackend(ModelBackend):
     def authenticate(self, request, identifiant=None, password=None, **kwargs):

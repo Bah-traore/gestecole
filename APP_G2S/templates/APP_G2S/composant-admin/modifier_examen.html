@@ -1,0 +1,27 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold mb-4">Modifier l'examen</h2>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="grid grid-cols-1 gap-6">
+                {{ form.as_p }}
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <a href="{% url 'liste_examens' %}" class="btn btn-gray">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+                <button type="submit" class="btn btn-blue">
+                    <i class="fas fa-save mr-2"></i>Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

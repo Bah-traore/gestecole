@@ -1,0 +1,96 @@
+{% extends 'base_admin.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="text-center mb-4">{% if form.instance.pk %}Modifier{% else %}Créer{% endif %} une Période de Paiement</h1>
+    
+    <div class="card shadow">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Section principale -->
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.nom|as_crispy_field }}
+                        {{ form.mode_paiement|as_crispy_field }}
+                        {{ form.nombre_tranches|as_crispy_field }}
+                    </div>
+
+
+
+
+                    <div class="col-md-6">
+                        {{ form.classe|as_crispy_field }}
+                        {{ form.rappel_jours|as_crispy_field }}
+                    </div>
+                </div>
+
+                <!-- Dates et montant -->
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.date_debut|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.date_fin|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.montant_total|as_crispy_field }}
+                        <small class="form-text text-muted">Montant minimum: 5 000 FCFA</small>
+                    </div>
+                </div>
+
+                <!-- Examen associé -->
+                <div class="row">
+                    <div class="col-md-12">
+                        {{ form.examen|as_crispy_field }}
+                        <small class="form-text text-muted">Seuls les examens en cours sont disponibles</small>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="mt-4 text-center">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                    <a href="{% url 'dashboard_paiements' %}" class="btn btn-outline-secondary btn-lg ml-2">
+                        <i class="fas fa-times mr-2"></i>Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Gestion des messages -->
+    {% if messages %}
+    <div class="mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Validation JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validation du montant minimum
+    document.getElementById('id_montant').min = 5000;
+    
+    // Formatage des dates
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if(this.value) this.classList.add('filled');
+            else this.classList.remove('filled');
+        });
+    });
+});
+</script>
+{% endblock %}

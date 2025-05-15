@@ -1,0 +1,112 @@
+{% extends 'base_admin.html' %}
+{% load perso_filtre %}
+
+{% block content %}
+<div class="container-fluid px-4 py-5">
+    <div class="card border-0 shadow-lg rounded-5 bg-gradient-dark text-light">
+        <div class="card-header bg-gradient-primary text-white py-4 rounded-top-5 border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 fw-bold"><i class="fas fa-edit me-2"></i>Modifier la période scolaire</h3>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 bg-gradient-dark text-light">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">{{ form.numero.label }}</label>
+                        {{ form.numero|add_class:"form-control form-control-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                        <div class="form-text text-danger">{{ form.numero.errors }}</div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">{{ form.annee_scolaire.label }}</label>
+                        {{ form.annee_scolaire|add_class:"form-select form-select-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                        <div class="form-text text-danger">{{ form.annee_scolaire.errors }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">{{ form.classe.label }}</label>
+                        {{ form.classe|add_class:"form-select form-select-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                        <div class="form-text text-danger">{{ form.classe.errors }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Intervalle des dates</label>
+                        <div class="input-group input-group-lg">
+                            {{ form.date_debut|add_class:"form-control bg-dark text-light border-0 shadow-sm rounded-start-pill datepicker" }}
+                            <span class="input-group-text bg-dark text-light border-0">au</span>
+                            {{ form.date_fin|add_class:"form-control bg-dark text-light border-0 shadow-sm rounded-end-pill datepicker" }}
+                        </div>
+                        <div class="form-text text-danger">
+                            {{ form.date_debut.errors }}
+                            {{ form.date_fin.errors }}
+                        </div>
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <div class="form-check form-switch ps-0">
+                            {{ form.is_active|add_class:"form-check-input bg-success border-0" }}
+                            <label class="form-check-label fw-semibold ms-2">{{ form.is_active.label }}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mt-2">
+                        <div class="form-check form-switch ps-0">
+                            {{ form.cloture|add_class:"form-check-input bg-danger border-0" }}
+                            <label class="form-check-label fw-semibold ms-2">{{ form.cloture.label }}</label>
+                        </div>
+                    </div>
+                    
+                    {% if is_censeur %}
+                    <div class="col-12 mt-4">
+                        <div class="card bg-dark border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0"><i class="fas fa-comment-alt me-2"></i>Commentaire pour le directeur</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label class="form-label">Veuillez expliquer pourquoi vous souhaitez modifier cette période :</label>
+                                    <textarea name="commentaire" class="form-control bg-dark text-light border-0 shadow-sm rounded-3" rows="4" required></textarea>
+                                    <small class="form-text text-muted">Ce commentaire sera inclus dans la demande d'approbation envoyée au directeur.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{% url 'gestion_periodes' %}" class="btn btn-secondary btn-lg rounded-pill px-4 shadow">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                    <button type="submit" class="btn btn-success btn-lg rounded-pill px-4 shadow">
+                        <i class="fas fa-save me-2"></i>Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialisation des datepickers
+    flatpickr('.datepicker', {
+        dateFormat: 'd/m/Y',
+        locale: 'fr'
+    });
+});
+</script>
+
+<style>
+.bg-gradient-dark {
+    background: linear-gradient(135deg, #23272b 0%, #181a1b 100%) !important;
+}
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+.rounded-5 {
+    border-radius: 1.5rem !important;
+}
+.rounded-4 {
+    border-radius: 1rem !important;
+}
+</style>
+{% endblock %}

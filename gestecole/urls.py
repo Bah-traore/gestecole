@@ -30,8 +30,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('APP_G2S.urls')),
+    path('', include('APP_G2S.urls')),  # La racine du site
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-
+    path('superadmin/', include('core_admin.urls', namespace='core_admin')),
 ]
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

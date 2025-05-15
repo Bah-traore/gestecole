@@ -26,6 +26,16 @@
                             <p class="text-sm">Classe : {{ eleve.classe }}</p>
                             <p class="text-sm mt-1">Section : {{ eleve.classe.section|upper }}</p>
                         </div>
+                        <div class="bg-gray-700 p-3 rounded-lg">
+                            <p class="font-semibold text-center mb-2">Parents</p>
+            
+                            <div class="mb-2 mx-auto text-center">
+                                <p class="text-sm"><span class="font-bold uppercase">pere:</span> {{ eleve.nom_pere|upper }}  {{ eleve.prenom_pere|upper }}</p>
+                                 <p class="text-sm"><span class="font-bold uppercase">mere:</span> {{ eleve.nom_mere|upper }}  {{ eleve.prenom_mere|upper }}</p>
+                                <p class="text-xs text-gray-300">Téléphone : {{ eleve.telephone }}</p>
+                            </div>
+
+                        </div>
                         {% if not emploi %}
                         <div class="bg-red-100 text-red-800 p-3 rounded-lg text-sm text-center">
                             Aucun emploi du temps disponible

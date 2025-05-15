@@ -1,0 +1,8 @@
+{% extends "base_core_admin.html" %}
+
+{% block content %}
+<h1>Super Admin Dashboard</h1>
+<ul>
+    <li><a href="{% url 'core_admin:tenants_list' %}">Gérer les écoles (tenants)</a></li>
+</ul>
+{% endblock %}

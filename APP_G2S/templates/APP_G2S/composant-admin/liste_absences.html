@@ -3,117 +3,157 @@
 {% block content %}
 <div class="container-fluid py-4">
     <div class="row">
-        <!-- Colonne principale -->
-        <div class="col-md-10 offset-md-1">
-            <div class="card shadow-sm mb-4">
+        <div class="col-lg-10 offset-lg-1">
+            <div class="card shadow-lg border-0 mb-4">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h2 class="mb-0">Gestion des Absences</h2>
-                        <a href="{% url 'ajouter_absence' %}" class="btn btn-success d-flex align-items-center">
-                            <i class="bi bi-plus-circle me-2"></i> Ajouter une absence
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-people-fill me-2"></i>Gestion des Absences
+                        </h2>
+                        <a href="{% url 'ajouter_absence' %}" class="btn btn-success btn-lg shadow-sm inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="bi bi-plus-circle me-2"></i>Ajouter une absence
                         </a>
                     </div>
 
                     <!-- Filtres -->
-                    <div class="card mb-4">
-                        <div class="card-header bg-light">
-                            <h5 class="card-title mb-0">Filtrer les absences</h5>
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-header bg-gradient bg-light">
+                            <h5 class="card-title mb-0 fw-semibold">
+                                <i class="bi bi-funnel me-2"></i>Filtrer les absences
+                            </h5>
                         </div>
-                        <div class="card-body">
-                            <form method="get" class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="eleve" class="form-label">Élève</label>
-                                    <select name="eleve" id="eleve" class="form-select">
-                                        <option value="">Tous les élèves</option>
-                                        {% for eleve in eleves %}
-                                        <option value="{{ eleve.id }}" {% if request.GET.eleve == eleve.id|stringformat:"s" %}selected{% endif %}>
-                                            {{ eleve.prenom }} {{ eleve.nom }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="date" class="form-label">Date</label>
-                                    <input type="date" name="date" id="date" class="form-control" value="{{ request.GET.date }}">
-                                </div>
-                                <div class="col-12 text-end">
-                                    <button type="submit" class="btn btn-primary me-2">
-                                        <i class="bi bi-funnel me-2"></i>Filtrer
-                                    </button>
-                                    <a href="{% url 'liste_absences' %}" class="btn btn-outline-secondary">
-                                        <i class="bi bi-arrow-counterclockwise me-2"></i>Réinitialiser
-                                    </a>
-                                </div>
-                            </form>
-                        </div>
+                        {% include 'filtrePeriodeClasse/filtrerPeriodeClasse.html'%}
                     </div>
 
                     <!-- Actions et Export -->
-                    <div class="d-flex justify-content-between mb-3">
-                        <div>
-                            <a href="{% url 'pdf_absences' %}" class="btn btn-danger me-2">
-                                <i class="bi bi-file-pdf me-2"></i>Exporter en PDF
-                            </a>
-                            <a href="{% url 'excel_absences' %}" class="btn btn-success">
-                                <i class="bi bi-file-earmark-excel me-2"></i>Exporter en Excel
-                            </a>
-                        </div>
+
+                    <div class="flex justify-end mb-6 gap-4">
+                        <a href="{% url 'pdf_absences' %}?{{ request.GET.urlencode }}" class="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Exporter PDF
+                        </a>
+                        <a href="{% url 'excel_absences' %}" class="inline-flex items-center px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 2v4h8V2" />
+                            </svg>
+                            Exporter Excel
+                        </a>
                     </div>
 
                     <!-- Tableau -->
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Élève</th>
-                                    <th>Date</th>
-                                    <th>Cours</th>
-                                    <th>Motif</th>
-                                    <th>Statut</th>
-                                    <th>Justificatif</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for absence in absences %}
-                                <tr>
-                                    <td>{{ absence.eleve }}</td>
-                                    <td>{{ absence.date|date:"d/m/Y" }}</td>
-                                    <td>{{ absence.emploi_du_temps.matiere }}</td>
-                                    <td>{{ absence.motif|default:"<span class='text-muted'>-</span>"|safe }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ absence.justification_status|lower }} text-white">
-                                            {{ absence.get_justification_status_display }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if absence.justification_document %}
-                                            <a href="{{ absence.justification_document.url }}" target="_blank" class="text-decoration-none" title="Voir le justificatif">
-                                                <i class="bi bi-file-text display-6"></i>
-                                            </a>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'modifier_absence' absence.id %}" class="btn btn-sm btn-primary" aria-label="Modifier l'absence">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">
-                                        Aucune absence trouvée selon les critères sélectionnés.
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                    <div class="table-responsive rounded-3 shadow-sm mt-4 d-none d-lg-block">
+    <table class="table table-hover align-middle mb-0 min-w-full divide-y divide-blue-200">
+        <thead class="table-primary">
+            <tr>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Élève</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Date</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Cours</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Motif</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Statut</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Justificatif</th>
+                <th scope="col" class="text-center px-6 py-3 text-xs font-bold text-blue-700 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for absence in absences %}
+            <tr>
+                <td class="fw-semibold text-center align-middle">{{ absence.eleve }}</td>
+                <td class="text-center align-middle">{{ absence.date|date:"d/m/Y" }}</td>
+                <td class="text-center align-middle">{{ absence.emploi_du_temps.matiere }}</td>
+                <td class="text-center align-middle">{{ absence.motif|default:"<span class='text-muted'>-</span>"|safe }}</td>
+                <td class="text-center align-middle">
+                    <span class="badge bg-{{ absence.justification_status|lower }} text-white px-3 py-2 fs-6">
+                        {{ absence.get_justification_status_display }}
+                    </span>
+                </td>
+                <td class="text-center align-middle">
+                    {% if absence.justification_document %}
+                        <a href="{{ absence.justification_document.url }}" target="_blank" class="text-decoration-none" title="Voir le justificatif">
+                            <i class="bi bi-file-text fs-4 text-success"></i>
+                        </a>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td class="text-center align-middle">
+                    <a href="{% url 'modifier_absence' absence.id %}" class="btn btn-sm btn-outline-primary" aria-label="Modifier l'absence">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="bi bi-emoji-frown fs-3"></i><br>
+                    Aucune absence trouvée selon les critères sélectionnés.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+
+
+{% comment %} la partie de responsive tablette {% endcomment %}
+
+<div class="d-block d-lg-none">
+    {% for absence in absences %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body py-3 px-3">
+            <div class="mb-2"><strong>Élève :</strong> {{ absence.eleve }}</div>
+            <div class="mb-2"><strong>Date :</strong> {{ absence.date|date:"d/m/Y" }}</div>
+            <div class="mb-2"><strong>Cours :</strong> {{ absence.emploi_du_temps.matiere }}</div>
+            <div class="mb-2"><strong>Motif :</strong> {{ absence.motif|default:"-" }}</div>
+            <div class="mb-2"><strong>Statut :</strong>
+                <span class="badge bg-{{ absence.justification_status|lower }} text-white px-3 py-2 fs-6">
+                    {{ absence.get_justification_status_display }}
+                </span>
+            </div>
+            <div class="mb-2"><strong>Justificatif :</strong>
+                {% if absence.justification_document %}
+                    <a href="{{ absence.justification_document.url }}" target="_blank" class="text-decoration-none" title="Voir le justificatif">
+                        <i class="bi bi-file-text fs-4 text-success"></i>
+                    </a>
+                {% else %}
+                    <span class="text-muted">-</span>
+                {% endif %}
+            </div>
+            <div>
+                <a href="{% url 'modifier_absence' absence.id %}" class="btn btn-sm btn-outline-primary" aria-label="Modifier l'absence">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info text-center mt-4">
+        <i class="bi bi-emoji-frown fs-3"></i><br>
+        Aucune absence trouvée selon les critères sélectionnés.
+    </div>
+    {% endfor %}
+</div>
+
+
+
+
+
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    @media (max-width: 991.98px) {
+    .table-responsive {
+        display: none !important;
+    }
+}
+</style>
+
 {% endblock %}

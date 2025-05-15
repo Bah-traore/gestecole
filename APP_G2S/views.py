@@ -1,54 +1,63 @@
 import json
+from collections import defaultdict
+from decimal import Decimal
+
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin
 from django.contrib.sessions.exceptions import SessionInterrupted
 from django.core.exceptions import ValidationError
-from django.core.files.base import ContentFile
 from django.db import transaction, models
-from django.db.models import Sum, Avg, Count, Q, Prefetch
-from django.http import HttpResponseForbidden, JsonResponse
-from django.shortcuts import render, redirect, HttpResponse, get_object_or_404
+from django.db.models import Sum, Count, Q, Prefetch, OuterRef, Subquery
+from django.db.models.functions.datetime import TruncMonth
+from django.http import HttpResponseForbidden
+from django.shortcuts import redirect
 from django.contrib.auth import login, logout
 from django.urls import reverse
+from django.urls.base import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
-from django.views.decorators.http import require_http_methods, require_GET
+from django.views.decorators.http import require_http_methods
+from django.views.generic.base import TemplateView, View
+from django.views.generic.edit import UpdateView, CreateView, FormView
 from openpyxl.styles import Font, Alignment
 
 from gestecole import settings
 from gestecole.utils.calculatrice_bulletin import calculer_moyennes_coefficients, calculer_moyenne_generale
-# from gestecole.utils.calculatrice_bulletin import calculer_moyennes
-from gestecole.utils.decorateurs import citoyen_required, agent_required, administrateur_required
+from gestecole.utils.decorateurs import administrateur_required, requires_approval, \
+    censeur_only, comptable_only, directeur_required, censeur_required, surveillant_required, comptable_required, \
+    multi_role_required, tenant_required
 from gestecole.utils.file_handlers import save_files_to_temp
-from gestecole.utils.idgenerateurs import SMSService, IDGenerator
+from gestecole.utils.idgenerateurs import IDGenerator
+from gestecole.utils.messageries import SmsOrangeService
 from gestecole.utils.paiements import MalitelMoneyAPI, OrangeMoneyAPI
-from gestecole.utils.services import EnseignantCreationService, MyLogin  # , LoginAdminFrom, get_client_ip
+from gestecole.utils.services import MyLogin  # , LoginAdminFrom, get_client_ip
+from . import forms
 from .forms import LoginForm, LoginFormAgent, LoginAdminFrom, EleveCreationForm, BulletinForm, ExamenForm, \
-    EnseignantCreationForm, MatiereForm, ClasseForm, PeriodeForm, AbsenceForm, PaiementFormEspeces, PeriodePaiementForm, \
-    EmploiDuTempsForm
+    EnseignantCreationForm, MatiereForm, ClasseForm, PeriodeForm, AbsenceForm, PeriodePaiementForm, \
+    EmploiDuTempsForm, PaiementForm, ValiderPaiementForm, PaiementEspeceForm, HistoriqueAcademiqueForm
 from django.conf import settings
 from datetime import datetime
 
-
-from django.utils import timezone
 from django_ratelimit.decorators import ratelimit
 
-from .models import Note, Administrateur, Eleve, Matiere, Classe, EmploiDuTemps, Absence, Enseignant, \
-    BulletinPerformance, BulletinMatiere, NoteExamen, Examen, PeriodePaiement, Periode, logger, Paiement
+from .models import Note, Administrateur, Eleve, Matiere, Classe, Enseignant, \
+    BulletinPerformance, BulletinMatiere, NoteExamen, Examen, Periode, logger, HistoriqueAcademique, PeriodePaiement, Paiement
 
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
 from openpyxl import Workbook
 from django.http import HttpResponse
 
-
-
+from .services.periodique.file_genereale import get_active_period, FiltreService
+from weasyprint import HTML
+from .tasks import envoyer_notifications_initiales, verifier_paiements_echelonnes
 
 ul = MyLogin()
 
 
+@tenant_required
 @ratelimit(key='post:identifiant', rate='5/h', method='POST')
 @csrf_protect
 @ratelimit(key='ip', rate='10/m', block=True)
@@ -59,10 +68,13 @@ def Admininstrateur(request):
             identifiant = form.cleaned_data['identifiant']
             password = form.cleaned_data['password']
             user = ul.login_user_Admin(identifiant, password)
+            print(user)
             if user is not None:
                 if user.is_admin and user.is_authenticated:
                     try:
                         login(request, user, backend='APP_G2S.auth_backends.AdminBackend')
+                        request.session.set_expiry(settings.SESSION_COOKIE_AGE)  # Session de 1h
+                        request.session['last_login'] = str(timezone.now())
                         return redirect('dashboard_admin')
                     except Exception as e:
                         messages.error(request, f"Erreur de connexion : {str(e)}")
@@ -77,7 +89,8 @@ def Admininstrateur(request):
     return render(request, 'APP_G2S/connexion_admin.html', {'form': form})
 
 
-# Login Citoyen
+
+@tenant_required
 @ratelimit(key='post:telephone', rate='5/h', method='POST')
 @csrf_protect
 def login_view_eleve(request):
@@ -86,7 +99,7 @@ def login_view_eleve(request):
         if form.is_valid():
             telephone = form.cleaned_data.get('telephone', None)
             password = form.cleaned_data.get('password', None)
-            user = ul.login_user_Admin(telephone, password)
+            user = ul.login_user(telephone, password)
             if user is None:
                 '''
                 je vais gere la session ici par la cockie ou par le stokage de request au local
@@ -104,6 +117,7 @@ def login_view_eleve(request):
     return render(request, 'APP_G2S/connexions/connexion.html', {'forms': form})
 
 
+@tenant_required
 @ratelimit(key='post:matricule', rate='5/h', method='POST')
 @csrf_protect
 def login_view_agent(request):
@@ -117,9 +131,11 @@ def login_view_agent(request):
             if user is None:
                 messages.error(request, "Matricule incorrect ou agent inactif.")
                 return redirect('login_agent')
-            if user.is_agent:
+            if hasattr(user, 'is_enseignant') and user.is_enseignant:
                 login(request, user, backend='APP_G2S.auth_backends.MatriculeBackend')
                 if request.user.is_authenticated:
+                    request.session.set_expiry(settings.SESSION_COOKIE_AGE)  # Session de 1h
+                    request.session['last_login'] = str(timezone.now())
                     return redirect('agent_dashboard')
             else:
                 messages.error(request, "Mot de passe incorrect.")
@@ -131,8 +147,10 @@ def login_view_agent(request):
 
 
 
+@tenant_required
 @administrateur_required
 # @permission_required('APP_G2S.view_all', raise_exception=True)
+@multi_role_required(directeur_required, censeur_required, surveillant_required, comptable_required)
 def dashboard_admin(request):
     if request.user.identifiant:
        if request.user.is_authenticated:
@@ -148,20 +166,52 @@ def dashboard_admin(request):
 
 
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required, comptable_required)
 def dashboard_eleve(request):
 
     return render(request, "APP_G2S/composant-admin/dashboard_eleve.html")
 
-# la gestion des eleves
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def liste_eleves(request):
-    eleves = Eleve.objects.all()
-    matieres = Matiere.objects.all()
-    classes_uniques = Classe.objects.distinct().order_by('id')
-    return render(request, 'APP_G2S/composant-admin/liste_eleves.html', {"eleves": eleves, 'matiere': matieres, 'classes_uniques': classes_uniques})
 
-@administrateur_required
+    active_period = get_active_period()
+    if not active_period:
+        return render(request, 'APP_G2S/composant-admin/liste_eleves.html', {'Noperiode': None})
+    matieres = Matiere.objects.all()
+
+    # Récupération des paramètres de filtrage
+    annee = request.GET.get('annee')
+    classe_id = request.GET.get('classe')
+
+    export_url = reverse('pdf_eleves') + f'?classe_id={classe_id}&annee={annee}'
+
+    # Filtrage des classes selon l'année
+    classes = FiltreService.get_classes(annee)
+    eleves = Eleve.objects.filter(classe__in=classes)
+
+    # Filtre supplémentaire par classe spécifique
+    if classe_id and classe_id.isdigit():
+        eleves = eleves.filter(classe__id=int(classe_id))
+
+    context = {
+        "eleves": eleves,
+        "annees": FiltreService.get_academie_years(),
+        "selected_annee": annee,
+        "classes_dispo": classes,  # Remplace classes_uniques
+        "selected_classe": classe_id,
+        'matiere': matieres,
+        'active_period': active_period,
+        'export_url': export_url,
+        'Noperiode': 1
+    }
+    return render(request, 'APP_G2S/composant-admin/liste_eleves.html', context)
+
+@tenant_required
+@multi_role_required(administrateur_required, censeur_required, surveillant_required, directeur_required)
 def detail_eleve(request, eleve_id):
     eleve = get_object_or_404(Eleve, id=eleve_id)
     notes = Note.objects.filter(eleve=eleve).select_related('matiere')
@@ -169,50 +219,36 @@ def detail_eleve(request, eleve_id):
     absences = Absence.objects.filter(eleve=eleve).select_related('matiere')
     emploi = EmploiDuTemps.objects.filter(classe=eleve.classe).prefetch_related('matiere')
 
+    print(eleve.profile_picture)
     context = {
         'eleve': eleve,
         'notes': notes,
         'notes_examen': note_examen,
         'emploi': emploi,
         'absences': absences,
-
     }
     return render(request, 'APP_G2S/composant-admin/detail_eleve.html', context)
 
 
-# @administrateur_required
-# def enseignant_gestion(request):
-#
-#     form = EnseignantCreationForm(data=request.POST)
-#     if form.is_valid():
-#         telephone = form.cleaned_data.get('telephone', 'N/A')
-#         nom_complet = form.cleaned_data.get('nom_complet', 'N/A')
-#         profile_picture = form.cleaned_data.get('profile_picture', 'N/A')
-#         matiere = form.cleaned_data.get('matiere', 'N/A')
-#
-#     enseignant = Enseignant.objects.all()
-#     context = {
-#         'enseignant': enseignant,
-#     }
-#
-#     return render(request, 'APP_G2S/composant-admin/liste_enseignant.html', context)
-#
 
-
-@administrateur_required
+@tenant_required
+@multi_role_required(administrateur_required, censeur_required, directeur_required, surveillant_required)
 def detail_enseignant(request, enseignant_id):
-
+    active_period = get_active_period()
     enseignant = get_object_or_404(Enseignant, id=enseignant_id)
 
     context = {
         'enseignant': enseignant,
+        'active_period': active_period
     }
 
     return render(request, 'APP_G2S/composant-admin/detail_enseignant.html', context)
 
 
-@administrateur_required
+@tenant_required
+@multi_role_required(administrateur_required, censeur_required, surveillant_required, directeur_required)
 def emploi_du_temps(request):
+    active_period = get_active_period()
     classe_selected = request.GET.get('classe')
 
     queryset = EmploiDuTemps.objects.all().select_related(
@@ -225,23 +261,66 @@ def emploi_du_temps(request):
     context = {
         'emploi': queryset,
         'classes': Classe.objects.all(),
-        'classe_selected': classe_selected
+        'classe_selected': classe_selected,
+        'active_period': active_period
     }
     return render(request, 'APP_G2S/composant-admin/emploi_du_temps.html', context)
 
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def liste_bulletins(request):
-    bulletins = BulletinPerformance.objects.all().select_related('eleve').order_by('-date_creation')
+    active_period = get_active_period()
+    if not active_period:
+        return render(request, 'APP_G2S/composant-admin/liste_bulletins.html', {'Noperiode': None})
+
+    annee = request.GET.get('annee')
+    classe_id = request.GET.get('classe')
+    periode_id = request.GET.get('periode')
+
+    # Récupération des classes et périodes
+    classes = FiltreService.get_classes(annee).filter(periode=active_period)  # Ajout du filtre par période active
+    all_periodes = Periode.objects.filter(is_active=True).order_by('-annee_scolaire', '-numero')  # Filtrer les périodes actives
+
+    # Définir la période sélectionnée
+    selected_period = active_period
+    if periode_id and periode_id.isdigit():
+        try:
+            selected_period = Periode.objects.get(id=int(periode_id))
+        except Periode.DoesNotExist:
+            messages.error(request, "La période sélectionnée n'existe pas ou est clôturée.")
+
+    # Filtrage des élèves
+    eleves = Eleve.objects.filter(classe__in=classes)
+    if classe_id and classe_id.isdigit():
+        eleves = eleves.filter(classe__id=int(classe_id))
+
+    # Filtrage des bulletins
+    bulletins = BulletinPerformance.objects.filter(
+        periode=selected_period,
+        eleve__in=eleves
+    ).select_related('eleve').order_by('-date_creation')
+
     context = {
         'bulletins': bulletins,
+        'active_period': selected_period,
+        'all_periodes': all_periodes,
+        "annees": FiltreService.get_academie_years(),
+        "selected_annee": annee,
+        "classes_dispo": classes,
+        "selected_classe": classe_id,
+        "selected_periode": periode_id,
+        'Noperiode': 1
     }
     return render(request, 'APP_G2S/composant-admin/liste_bulletins.html', context)
 
-
+@tenant_required
 @administrateur_required
 # @transaction.atomic
+@censeur_only
 def ajouter_bulletin(request):
+    active_period = get_active_period() # la periode active
     # Initialisation des variables
 
 
@@ -261,7 +340,8 @@ def ajouter_bulletin(request):
         'classement': None,
         'periode_active': None,
         'bulletin_existant': None,
-        'examens_valides': True
+        'examens_valides': True,
+        'active_period': active_period
     }
 
     try:
@@ -428,13 +508,9 @@ def ajouter_bulletin(request):
     return render(request, 'APP_G2S/composant-admin/ajouter_bulletin.html', context)
 
 
-from django.views.decorators.http import require_GET
-from django.http import JsonResponse
-
-
-
-
-
+@tenant_required
+@administrateur_required
+@censeur_only
 def detail_bulletin(request, bulletin_id):
     bulletin = get_object_or_404(BulletinPerformance, id=bulletin_id)
     notes_details = bulletin.get_notes_details()
@@ -455,7 +531,9 @@ def detail_bulletin(request, bulletin_id):
     }
     return render(request, 'APP_G2S/composant-admin/detail_bulletin.html', context)
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def enseignant_gestion(request):
     enseignants = Enseignant.objects.all()
     context = {
@@ -466,7 +544,9 @@ def enseignant_gestion(request):
 
 
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def ajouter_enseignant(request):
     if request.method == settings.METHODE_POST:
         form = EnseignantCreationForm(request.POST, request.FILES)
@@ -485,7 +565,15 @@ def ajouter_enseignant(request):
 
                 enseignant.save()
                 form.save_m2m()
-                if SMSService.send_creation_sms(enseignant, password):
+                sms_service = SmsOrangeService()
+                message = (
+                    f"Bienvenue {enseignant.nom_complet}!\n"
+                    f"Identifiant: {enseignant.identifiant}\n"
+                    f"Mot de passe temporaire: {password}\n"
+                    f"Valide 15 minutes. A changer après connexion."
+                )
+                success, _ = sms_service.envoyer_sms_orange(enseignant.telephone, message)
+                if success:
                     messages.success(request, "Enseignant créé avec succès ! SMS envoyé.")
                 else:
                     messages.warning(request, "Enseignant créé mais échec d'envoi SMS")
@@ -506,7 +594,9 @@ def ajouter_enseignant(request):
         'form': form
     })
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='supprimer_enseignant', model=Enseignant, id_param='enseignant_id')
 def supprimer_enseignant(request, enseignant_id):
     enseignant = get_object_or_404(Enseignant, id=enseignant_id)
     if request.method == 'POST':
@@ -516,7 +606,9 @@ def supprimer_enseignant(request, enseignant_id):
     return render(request, 'APP_G2S/composant-admin/supprimer_enseignant.html', {'enseignant': enseignant})
 
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='modifier_enseignant', model=Enseignant, id_param='enseignant_id')
 def modifier_enseignant(request, enseignant_id):
     enseignant = get_object_or_404(Enseignant, id=enseignant_id)
     if request.method == 'POST':
@@ -530,53 +622,68 @@ def modifier_enseignant(request, enseignant_id):
     return render(request, 'APP_G2S/composant-admin/modifier_enseignant.html', {'form': form})
 
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def ajouter_eleve(request):
     if request.method == 'POST':
         form = EleveCreationForm(request.POST, request.FILES)
-        if form.is_valid():
-            try:
-                eleve = form.save(commit=False)
-                eleve.is_eleve = True
+        try:
+            if form.is_valid():
+                try:
+                    eleve = form.save(commit=False)
+                    eleve.is_eleve = True
 
-                password = IDGenerator.generatriceMDP_default()
+                    password = IDGenerator.generatriceMDP_default()
 
-                from django.contrib.auth.hashers import make_password
-                eleve.password = make_password(password)
-                user_id = f"{eleve.nom}-{eleve.prenom}"
-                with transaction.atomic():
-                    try:
-                        temp_files = save_files_to_temp(request.FILES, user_id)
-                        request.session['temp_files'] = temp_files
-                    except Exception as e:
-                        print(f"Erreur au niveau temp_files: {e}")
-                        messages.error(request, f"Erreur au niveau temp_files: {e}")
+                    from django.contrib.auth.hashers import make_password
+                    eleve.password = make_password(password)
+                    user_id = f"{eleve.nom}-{eleve.prenom}"
+                    with transaction.atomic():
+                        try:
+                            temp_files = save_files_to_temp(request.FILES, user_id)
+                            request.session['temp_files'] = temp_files
+                        except Exception as e:
+                            print(f"Erreur au niveau temp_files: {e}")
+                            messages.error(request, f"Erreur au niveau temp_files: {e}")
+                            return redirect('eleve_gestion')
+
+                        sms_service = SmsOrangeService()
+                        message = (
+                            f"Bienvenue {eleve.prenom} {eleve.nom}!\n"
+                            f"Identifiant: {eleve.identifiant}\n"
+                            f"Mot de passe temporaire: {password}\n"
+                            f"Valide 15 minutes. A changer après connexion."
+                        )
+                        success, _ = sms_service.envoyer_sms_orange(eleve.telephone, message)
+                        if success:
+                            eleve.save()
+                            form.save_m2m()
+                            messages.success(request, "Élève créé avec succès. SMS envoyé!")
+                            return redirect('eleve_gestion')
+                        else:
+                            messages.warning(request, "Élève créé mais échec d'envoi SMS")
                         return redirect('eleve_gestion')
-
-                    if SMSService.send_creation_sms_eleve(eleve, password):
-                        eleve.save()
-                        form.save_m2m()
-                        messages.success(request, "Élève créé avec succès. SMS envoyé!")
-                        return redirect('eleve_gestion')
-                    else:
-                        messages.warning(request, "Élève créé mais échec d'envoi SMS")
-                    return redirect('eleve_gestion')
-            except ValidationError as e:
-                messages.error(request, str(e))
-            except Exception as e:
-                messages.error(request, f"Erreur système : {str(e)}")
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"Erreur sur le champ {field}: {error}")
-            messages.error(request, "Formulaire invalide")
+                except ValidationError as e:
+                    messages.error(request, str(e))
+                except Exception as e:
+                    messages.error(request, f"Erreur système : {str(e)}")
+            else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"Erreur sur le champ {field}: {error}")
+                messages.error(request, "Formulaire invalide")
+        except Exception as e:
+            messages.error(request, f"Erreur Vous n'avez pas ajoute image ou image trop eleve, max 5MB. Si persite contacter ce numero +223 94 30 63 02")
     else:
         form = EleveCreationForm()
 
     return render(request, 'APP_G2S/composant-admin/ajouter_eleve.html', {'form': form})
 
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def ajouter_emploi(request):
     if request.method == 'POST':
         form = EmploiDuTempsForm(request.POST)
@@ -603,63 +710,142 @@ def ajouter_emploi(request):
         'form': form,
         'emplois': emplois
     })
+@tenant_required
 @administrateur_required
+@censeur_only
 def ajouter_note(request):
 
     return render(request, 'APP_G2S/composant-admin/ajouter_note.html')
 
+@tenant_required
 @administrateur_required
-# @staff_member_required
+@censeur_only
 def liste_examens(request):
-    # Validation et récupération des examens actifs
-    examens = Examen.objects.all() # filter(validite='EN_COURS') \
-        # .prefetch_related('matieres') \
-        # .prefetch_related('classe') \
-        # .order_by('-date')
+    active_period = get_active_period()
+    if not active_period:
+        return render(request, 'APP_G2S/composant-admin/liste_examens.html', {'Noperiode': None})
 
-    # Filtrage par classe valide
+    annee = request.GET.get('annee')
     classe_id = request.GET.get('classe')
+    periode_id = request.GET.get('periode')
+
+    # Récupération des classes et périodes
+    classes = FiltreService.get_classes(annee).filter(periode=active_period)
+    all_periodes = Periode.objects.filter(is_active=True).order_by('-annee_scolaire', '-numero')
+
+    # Définir la période sélectionnée
+    selected_period = active_period
+    if periode_id and periode_id.isdigit():
+        try:
+            selected_period = Periode.objects.get(id=int(periode_id))
+        except Periode.DoesNotExist:
+            messages.error(request, "La période sélectionnée n'existe pas ou est clôturée.")
+
+    # Filtrage des examens
+    examens = Examen.objects.filter(
+        periode=selected_period
+    ).prefetch_related('classe').prefetch_related('matieres').order_by('-date')
+
     if classe_id and classe_id.isdigit():
         examens = examens.filter(classe__id=int(classe_id))
 
     context = {
         'examens': examens,
-        'classes': Classe.objects.all() # filter(est_actif=True)
+        'active_period': selected_period,
+        'all_periodes': all_periodes,
+        "annees": FiltreService.get_academie_years(),
+        "selected_annee": annee,
+        "classes_dispo": classes,
+        "selected_classe": classe_id,
+        "selected_periode": periode_id,
+        'Noperiode': 1
     }
     return render(request, 'APP_G2S/composant-admin/liste_examens.html', context)
 
+
+from django.db.models import Avg, Max, Min
+from django.shortcuts import get_object_or_404, render
+
+@tenant_required
+@censeur_only
 @administrateur_required
 def detail_examen(request, examen_id):
+    # Récupération des paramètres de filtre
+    selected_annee = request.GET.get('annee')
+    selected_classe = request.GET.get('classe')
+    print(selected_classe)
+    print(selected_annee)
+
+    # Récupération de l'examen avec préchargement optimisé
     examen = get_object_or_404(
-        Examen.objects.all(), # select_related('classe').prefetch_related('matiere'),  # Correction ici
+        Examen.objects.prefetch_related(
+            Prefetch('classe', queryset=Classe.objects.all()),
+            Prefetch('matieres')
+        ),
         pk=examen_id
     )
 
-    print("examen", examen)
+    # Filtrage des classes selon l'année scolaire
+    classes_query = examen.classe.all()
+    if selected_annee:
+        classes_query = classes_query.filter(periode__annee_scolaire=selected_annee)
+        print(classes_query)
 
-    # Récupérer les notes avec les élèves associés
-    notes_examen = NoteExamen.objects.filter(examen=examen) \
-        .select_related('eleve') \
-        .order_by('eleve__nom')
+    # Filtrage supplémentaire si une classe est sélectionnée
+    if selected_classe:
+        classes_query = classes_query.filter(id=selected_classe)
+        print(classes_query)
 
-    print("notes_examen", notes_examen)
+    # Récupération des élèves concernés
+    eleves = Eleve.objects.filter(classe__in=classes_query)
+    print(eleves)
 
-    # Statistiques
-    moyenne_generale = notes_examen.aggregate(
-        avg_note=models.Avg('note')
-    )['avg_note'] or 0
+    # Récupération des notes avec filtrage
+    notes_examen = NoteExamen.objects.filter(
+        examen=examen,
+        eleve__in=eleves
+    ).select_related('eleve', 'matiere').order_by('eleve__nom')
+
+    # Calcul des statistiques
+    stats = notes_examen.aggregate(
+        avg_note=Avg('note'),
+        max_note=Max('note'),
+        min_note=Min('note')
+    )
+
+    # Préparation des données groupées
+    notes_par_eleve = defaultdict(lambda: {'eleve': None, 'notes': {}, 'moyenne': 0})
+    for note in notes_examen:
+        eleve_data = notes_par_eleve[note.eleve.id]
+        eleve_data['eleve'] = note.eleve
+        eleve_data['notes'][note.matiere.id] = note.note
+
+    # Calcul des moyennes par élève
+    for eleve_data in notes_par_eleve.values():
+        notes = list(eleve_data['notes'].values())
+        eleve_data['moyenne'] = sum(notes) / len(notes) if notes else 0
 
     context = {
         'examen': examen,
-        'notes_examen': notes_examen,
-        'moyenne_generale': round(moyenne_generale, 2),
-        'note_max': notes_examen.aggregate(max=models.Max('note'))['max'] or 0,
-        'note_min': notes_examen.aggregate(min=models.Min('note'))['min'] or 0,
+        'classes': classes_query,
+        'matieres': examen.matieres.all(),
+        'notes_par_eleve': sorted(notes_par_eleve.values(), key=lambda x: x['eleve'].nom),
+        'moyenne_generale': stats['avg_note'] or 0,
+        'note_max': stats['max_note'] or 0,
+        'note_min': stats['min_note'] or 0,
+        'total_eleves': eleves.count(),
+        'annees': FiltreService.get_academie_years(),
+        'selected_annee': selected_annee,
+        'classes_dispo': examen.classe.all(),
+        'selected_classe': selected_classe,
     }
     return render(request, 'APP_G2S/composant-admin/detail_examen.html', context)
 
-
+@tenant_required
+@administrateur_required
 @csrf_protect
+@directeur_required
+@requires_approval(action_type='modifier_notes', model=(Note, NoteExamen), id_param=None)
 def saisir_notes(request):
     if request.method == 'POST':
         classe_id = request.POST.get('classe')
@@ -667,94 +853,130 @@ def saisir_notes(request):
         examen_id = request.POST.get('examen')
 
         try:
+            # Validation des données requises
+            if not all([classe_id, matiere_id]):
+                raise ValidationError("Classe et matière sont obligatoires")
+
             classe = Classe.objects.get(id=classe_id)
             matiere = Matiere.objects.get(id=matiere_id)
             examen = Examen.objects.get(id=examen_id) if examen_id else None
             today = timezone.now().date()
 
-            # Validation des contraintes
-            periode = None
-            periode_examen = None
-            if examen:
-                periode_examen = examen.periode
-                if not (examen.date <= today <= examen.date_fin):
-                    raise ValidationError("Hors période de l'examen")
-            else:
-                periode = Periode.objects.active().filter(
-                    classe=classe,
-                    date_debut__lte=today,
-                    date_fin__gte=today
-                ).first()
-                periode_examen = Examen.objects.filter(validite="EN_COURS", periode=periode).first()
-                print(periode_examen)
-                if not periode:
-                    raise ValidationError("Aucune période active")
+            # Validation de la période
+            periode = Periode.objects.filter(
+                classe=classe,
+                date_debut__lte=today,
+                date_fin__gte=today
+            ).first()
+
+            if not periode:
+                raise ValidationError("Aucune période active pour cette classe")
 
             if periode.cloture or not periode.is_active:
                 raise ValidationError("Période clôturée/inactive")
 
-            # Traitement des notes
-            for key, value in request.POST.items():
-                # if key.startswith('classe'):
-                #     classe = classe.objects.get(classe)
-                if key.startswith('note_classe_'):
-                    eleve_id = key.split('_')[2]
-                    eleve = Eleve.objects.get(id=eleve_id)
-                    Note.objects.update_or_create(
-                        eleve=eleve,
-                        matiere=matiere,
-                        classe=classe,
-                        periode=periode,
-                        examen_reference_id=periode_examen.id,
-                        defaults={'valeur': float(value), 'date': today}
-                    )
+            # Validation des contraintes d'examen
+            if not examen and any(k.startswith('note_classe_') for k in request.POST):
+                raise ValidationError("Les notes de classe nécessitent un examen associé")
 
-                elif key.startswith('note_examen_'):
-                    if type(value) == str:
-                        continue
-                    eleve_id = key.split('_')[2]
-                    eleve = Eleve.objects.get(id=eleve_id)
-                    NoteExamen.objects.update_or_create(
-                        eleve=eleve,
-                        matiere=matiere,
-                        periode=periode,
-                        examen=examen if examen else float(0),
-                        defaults={'note': float(value), 'date': today}
-                    )
+            if examen:
+                if not (examen.date <= today <= examen.date_fin):
+                    raise ValidationError("Hors période de l'examen ou date de début invalide")
+
+                periode_examen = Examen.objects.filter(
+                    validite="EN_COURS", periode=periode
+                ).first()
+
+                if not periode_examen:
+                    raise ValidationError("Aucun examen en cours pour cette période")
+
+            # Traitement des notes dans une transaction
+            with transaction.atomic():
+                for key, value in request.POST.items():
+                    if key.startswith('note_classe_') and not examen:
+                        raise ValidationError("Notes de classe sans examen associé")
+
+                    if key.startswith('note_classe_') or key.startswith('note_examen_'):
+                        eleve_id = key.split('_')[2]
+                        eleve = Eleve.objects.get(id=eleve_id)
+
+                        if key.startswith('note_classe_'):
+                            Note.objects.update_or_create(
+                                eleve=eleve,
+                                matiere=matiere,
+                                classe=classe,
+                                periode=periode,
+                                examen_reference=periode_examen,
+                                defaults={'valeur': float(value), 'date': today}
+                            )
+                        elif key.startswith('note_examen_'):
+                            NoteExamen.objects.update_or_create(
+                                eleve=eleve,
+                                matiere=matiere,
+                                periode=periode,
+                                examen=examen,
+                                defaults={'note': float(value), 'date': today}
+                            )
 
             messages.success(request, "Notes sauvegardées")
-            return redirect('saisir_notes')
+            return redirect(f"{reverse('saisir_notes')}?classe={classe_id}")
 
-        except Exception as e:
+        except (Classe.DoesNotExist, Matiere.DoesNotExist, Eleve.DoesNotExist) as e:
+            messages.error(request, f"Référence introuvable : {str(e)}")
+        except ValidationError as e:
             messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"Erreur système : {str(e)}")
 
-    # GET: Afficher les données initiales
+    # Gestion de la requête GET
+    classe_id = request.GET.get('classe') or request.POST.get('classe')
     classes = Classe.objects.all()
     matieres = Matiere.objects.all()
     examens_en_cours = Examen.objects.filter(validite='EN_COURS')
     examens_fin = Examen.objects.filter(validite='FIN')
+
+    # Sélection de la classe avec gestion d'erreur
+    classe = None
+    if classe_id:
+        try:
+            classe = Classe.objects.prefetch_related('matieres').get(id=classe_id)
+            matieres = classe.matieres.all()
+        except Classe.DoesNotExist:
+            messages.error(request, "Classe sélectionnée introuvable")
+
     return render(request, 'APP_G2S/composant-admin/saisir_notes.html', {
         'classes': classes,
         'matieres': matieres,
         'examens_en_cours': examens_en_cours,
-        'examens_fin': examens_fin
+        'examens_fin': examens_fin,
+        'classe_selectionnee': classe,
+        'active_period': get_active_period()
     })
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def liste_notes(request):
-    notes_classe = Note.objects.all().select_related('eleve', 'matiere')
-    notes_examen = NoteExamen.objects.all().select_related('eleve', 'examen')
+    active_period = get_active_period()
+    if not active_period:
+        return render(request, 'APP_G2S/composant-admin/liste_notes.html', {'Noperiode': None})
+    notes_classe = Note.objects.filter(periode=active_period).select_related('eleve', 'matiere')
+    notes_examen = NoteExamen.objects.filter(periode=active_period).select_related('eleve', 'examen')
 
     return render(request, 'APP_G2S/composant-admin/liste_notes.html', {
         'notes_classe': notes_classe,
-        'notes_examen': notes_examen
+        'notes_examen': notes_examen,
+        'active_period': active_period,
+        'Noperiode': 1
     })
-
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 @require_GET
+@tenant_required
+@administrateur_required
+@censeur_only # optionnel
 def api_eleves(request):
     classe_id = request.GET.get('classe')
     matiere_id = request.GET.get('matiere')
@@ -775,23 +997,29 @@ def api_eleves(request):
     for eleve in eleves:
         note_classe = float(0)
         note_examen = float(0)
-        disabled = True
 
-
+        try:
+            examen = Examen.objects.get(id=examen_id) if examen_id else None
+        except Examen.DoesNotExist:
+            messages.error(request, "Examen n'existe pas ou non enregistré")
+        except Exception as e:
+            print('dans api_eleves', str(e))
+            logger.error(f"Erreur dans api_eleves: {str(e)}")
 
         try:
             if examen_id:
                 examen = Examen.objects.get(id=examen_id)
+                classe = examen.classe.prefetch_related('matieres').get(id=classe_id)
+                # matieres = classe.matieres.get(id=matiere_id)
                 examen_valide = (
-                    examen.validite == 'EN_COURS' and
-                    examen.date <= today <= examen.date_fin and
-                    examen.periode.is_active and
-                    not examen.periode.cloture and
-                    examen.matieres.filter(id=matiere_id).exists()
+                        examen.validite == 'EN_COURS' and
+                        examen.date <= today <= examen.date_fin and
+                        examen.periode.is_active and
+                        not examen.periode.cloture and
+                        classe.matieres.filter(id=matiere_id).exists()
                 )
 
                 if examen_valide:
-                    disabled = False
                     note = NoteExamen.objects.filter(
                         eleve=eleve,
                         examen=examen,
@@ -802,43 +1030,25 @@ def api_eleves(request):
                     n_classe = Note.objects.filter(
                         eleve=eleve,
                         matiere__id=matiere_id,
-                        periode=periode
+                        periode=periode,
+                        examen_reference=examen
                     ).first()
                     note_classe = n_classe.valeur if n_classe else float(0)
-
-            else:
-
-                if periode:
-                    disabled = False
-                    n_classe = Note.objects.filter(
-                        eleve=eleve,
-                        matiere__id=matiere_id,
-                        periode=periode
-                    ).first()
-                    note_classe = n_classe.valeur if n_classe else float(0)
-
-
-                    # # Note d'examen liée à la période
-                    # n_examen = NoteExamen.objects.filter(
-                    #     eleve=eleve,
-                    #     matiere_id=matiere_id,
-                    #     periode=periode
-                    # ).first()
-                    # note_examen = n_examen.note if n_examen else ''
-                    # print('n_examen', n_examen)
-
         except Examen.DoesNotExist:
             messages.error(request, "Examen n'existe pas ou non enregistré")
-        except Exception as e:
-            print('dans api_eleves', str(e))
-            messages.error(request, 'dans api_eleves', str(e))
+        except AttributeError as e:
+            # e = examen.classe.prefetch_related('matieres').filter(id=matiere_id).first()
+            # print('oooo', examen.classe.prefetch_related('matieres').matieres.filter(id=matiere_id).first())
+            # print(e.matieres.first())
+
+            print('probleme d\'attribut veuillez contacter le service +223 94 30 63 02', str(e))
+            messages.error(request, 'probleme d\'attribut veuillez contacter le service +223 94 30 63 02', str(e))
 
         data.append({
             'id': eleve.id,
             'nom_complet': f"{eleve.prenom} {eleve.nom}",
             'note_classe': float(note_classe),
             'note_examen': float(note_examen),
-            'disabled': disabled
         })
 
         # print('la data c\'est dire les donnees', data)
@@ -847,6 +1057,9 @@ def api_eleves(request):
 
 
 @require_GET
+@tenant_required
+@administrateur_required
+@censeur_only
 def api_examens(request, examen_id):
     try:
         examen = Examen.objects.get(id=examen_id)
@@ -862,13 +1075,16 @@ def api_examens(request, examen_id):
         return JsonResponse({'error': 'Examen non trouvé'}, status=404)
 
 
+@tenant_required
+@censeur_only
+@requires_approval(action_type='creer_examen', model=Examen, id_param=None)
 @administrateur_required
 def creer_examen(request):
     if request.method == 'POST':
         form = ExamenForm(request.POST)
         if form.is_valid():
             try:
-                # Validation 1 : Vérifier les matières via form.cleaned_data
+                # # Validation 1 : Vérifier les matières via form.cleaned_data
                 # if not form.cleaned_data.get('matiere'):
                 #     form.add_error('matiere', "Sélectionnez au moins une matière")
                 #     raise ValidationError("Matière manquante")
@@ -900,45 +1116,107 @@ def creer_examen(request):
     return render(request, 'APP_G2S/composant-admin/creer_examen.html', {'form': form})
 
 
+@tenant_required
 @administrateur_required
-def reglement_periode(request):
+@directeur_required
+# @requires_approval(action_type='modifier_periode', model=Periode, id_param='periode_id')
+def periode_scolaire(request):
+    active_period = None
+    form = None
+    periodes_actives = Periode.objects.all()
+    for i in periodes_actives:
+        print(i.classe)
+        print(dir(i.classe))
+        print(dir(i))
+
     try:
         # Récupération de la période active existante
         active_period = Periode.objects.filter(is_active=True).first()
-    except AttributeError:
-        messages.error(request, "Erreur de configuration : Manager 'active' non défini")
-        active_period = None
-
-    # Initialisation du formulaire
-    form = PeriodeForm(instance=active_period)
-    periodes_actives = Periode.objects.all()
+        form = PeriodeForm(instance=active_period)
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération de la période active : {str(e)}", exc_info=True)
+        messages.error(request, "Erreur de configuration : impossible de récupérer la période active.")
+        form = PeriodeForm()
 
     if request.method == "POST":
+        form = PeriodeForm(request.POST, instance=active_period)
         try:
-            form = PeriodeForm(request.POST, instance=active_period)
-
             if form.is_valid():
-                # Sauvegarde en deux étapes pour les relations M2M
                 periode = form.save(commit=False)
-                periode.save()  # Crée l'ID avant de gérer les relations
-                form.save_m2m()  # Sauvegarde les relations ManyToMany
-
+                periode.save()
+                form.save_m2m()
                 messages.success(request, "Période enregistrée avec succès")
                 return redirect('gestion_periodes')
             else:
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
                 messages.error(request, "Formulaire invalide. Veuillez corriger les erreurs.")
-
         except Exception as e:
-            logger.error(f"Erreur critique : {str(e)}", exc_info=True)
+            logger.error(f"Erreur critique lors de l'enregistrement de la période : {str(e)}", exc_info=True)
             messages.error(request, f"Erreur lors de l'enregistrement : {str(e)}")
 
-    return render(request, 'APP_G2S/composant-admin/reglements_periode.html', {
+    return render(request, 'APP_G2S/composant-admin/periode_scolaire.html', {
         'form': form,
         'periodes_actives': periodes_actives
     })
 
 
+@tenant_required
+@censeur_only
+@requires_approval(action_type='modifier_periode', model=Periode, id_param='periode_id')
+def modifier_periode(request, periode_id):
+    periode = get_object_or_404(Periode, id=periode_id)
+    if request.method == 'POST':
+        form = PeriodeForm(request.POST, instance=periode)
+
+        # Si un commentaire est fourni, l'ajouter aux données de la requête
+        commentaire = request.POST.get('commentaire')
+        if commentaire and request.user.role == 'CENSEUR':
+            # Stocker le commentaire dans la session pour qu'il soit disponible lors de la création de la demande d'approbation
+            request.session['commentaire_modification'] = commentaire
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Période modifiée avec succès !")
+            return redirect('gestion_periodes')
+        else:
+            messages.error(request, "Erreur dans le formulaire. Veuillez corriger les erreurs.")
+    else:
+        form = PeriodeForm(instance=periode)
+
+    context = {
+        'form': form,
+        'periode': periode,
+        'is_censeur': request.user.role == 'CENSEUR'
+    }
+    return render(request, 'APP_G2S/composant-admin/modifier_periode.html', context)
+
+
+@tenant_required
+@censeur_only
+@requires_approval(action_type='supprimer_periode', model=Periode, id_param='periode_id')
+def supprimer_periode(request, periode_id):
+    periode = get_object_or_404(Periode, id=periode_id)
+    if request.method == 'POST':
+        # Si un commentaire est fourni, l'ajouter aux données de la requête
+        commentaire = request.POST.get('commentaire')
+        if commentaire and request.user.role == 'CENSEUR':
+            # Stocker le commentaire dans la session pour qu'il soit disponible lors de la création de la demande d'approbation
+            request.session['commentaire_suppression'] = commentaire
+
+        periode.delete()
+        messages.success(request, "Période supprimée avec succès")
+        return redirect('gestion_periodes')
+    return render(request, 'APP_G2S/composant-admin/supprimer_periode.html', {
+        'periode': periode,
+        'is_censeur': request.user.role == 'CENSEUR'
+    })
+
+
+@tenant_required
 @administrateur_required
+@censeur_only
 def ajouter_classe(request):
     if request.method == 'POST':
         form = ClasseForm(request.POST)
@@ -956,7 +1234,9 @@ def ajouter_classe(request):
     return render(request, 'APP_G2S/composant-admin/ajouter_classe.html', context)
 
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='modifier_classe', model=Classe, id_param='classe_id')
 def modifier_classe(request, classe_id):
     classe = get_object_or_404(Classe, id=classe_id)
     if request.method == 'POST':
@@ -978,15 +1258,21 @@ def modifier_classe(request, classe_id):
     return render(request, 'APP_G2S/composant-admin/modifier_classe.html', context)
 
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def liste_classes(request):
+    active_period = get_active_period()
     classes = Classe.objects.all().select_related('responsable')
     return render(request, 'APP_G2S/composant-admin/liste_classes.html', {
-        'classes': classes
+        'classes': classes,
+        'active_period' : active_period
     })
 
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def ajouter_matiere(request):
     if request.method == 'POST':
         form = MatiereForm(request.POST)
@@ -999,16 +1285,23 @@ def ajouter_matiere(request):
 
     return render(request, 'APP_G2S/composant-admin/ajouter_matiere.html', {'form': form})
 
+@tenant_required
 @administrateur_required
+@censeur_only
 def liste_matieres(request):
+    active_period = get_active_period()
     matieres = Matiere.objects.all().prefetch_related('classe_set')
     print(matieres)
     print()
     return render(request, 'APP_G2S/composant-admin/liste_matiere.html', {
-        'matieres': matieres
+        'matieres': matieres,
+        'active_period' : active_period
     })
 
 @require_GET
+@tenant_required
+@administrateur_required
+@censeur_only
 def api_matieres(request):
     classe_id = request.GET.get('classe_id')
     if classe_id:
@@ -1016,7 +1309,9 @@ def api_matieres(request):
         return JsonResponse(list(matieres), safe=False)
     return JsonResponse([], safe=False)
 
-@administrateur_required
+@tenant_required
+@censeur_only
+@requires_approval(action_type='modifier_notes_examen', model=NoteExamen, id_param=None)
 def saisir_notes_examen(request, examen_id):
     examen = get_object_or_404(Examen, id=examen_id)
     eleves = Eleve.objects.filter(classe=examen.classe)
@@ -1047,35 +1342,218 @@ def saisir_notes_examen(request, examen_id):
     })
 
 
+@tenant_required
 @administrateur_required
 def logout_view(request):
     logout(request)
     return redirect('connexion_admin')
 
+from APP_G2S.tasks import *
 
-@administrateur_required
-def creer_periode(request):
-    if request.method == 'POST':
-        form = PeriodePaiementForm(request.POST)
-        if form.is_valid():
-            try:
-                periode = form.save()
-                messages.success(request, "Période de paiement créée avec succès !")
-                return redirect('gerer_paiements')
-            except Exception as e:
-                messages.error(request, f"Erreur: {str(e)}")
-        else:
-            messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
-    else:
-        form = PeriodePaiementForm()
 
-    return render(request, 'APP_G2S/composant-admin/ajouter_periode_paie.html', {
-        'form': form,
-        'classes': Classe.objects.all(),
-        'examens': Examen.objects.filter(validite='EN_COURS')
+@method_decorator(administrateur_required, name='dispatch')
+@method_decorator(comptable_only, name='dispatch')
+@method_decorator(transaction.atomic, name='post')
+class CreerPeriodePaiementView(FormView):
+    template_name = 'APP_G2S/composant-comptable/creer_periode_paiement.html'
+    form_class = PeriodePaiementForm
+    success_url = reverse_lazy('gestion_paiements')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'classes': Classe.objects.all(),
+            'examens': Examen.objects.filter(validite='EN_COURS'),
+            'montant_min': 5000
+        })
+        return context
+
+    def form_valid(self, form):
+        try:
+            periode = form.save(commit=False)
+
+            # Validation des dates
+            if periode.date_debut >= periode.date_fin:
+                form.add_error('date_fin', "La date de fin doit être postérieure à la date de début")
+                return self.form_invalid(form)
+
+            periode.save()
+            form.save_m2m()  # Pour les relations ManyToMany (classes)
+
+            # Planification des tâches asynchrones
+            # envoyer_notifications_initiales.delay(periode.id)
+            # planifier_rappels(periode.id)
+            print("creer")
+            messages.success(self.request,
+                             f"Période {periode.nom} créée avec succès ! "
+                             f"Notifications envoyées à {periode.classe.count()} classes."
+                             )
+            print("creer")
+            return super().form_valid(form)
+
+        except Exception as e:
+            messages.error(self.request, f"Erreur critique : {str(e)}")
+            logger.error(f"Erreur création période paiement : {str(e)}")
+            return self.form_invalid(form)
+
+
+@method_decorator(comptable_only, name='dispatch')
+class GestionPaiementsView(TemplateView):
+    template_name = 'APP_G2S/composant-comptable/gestion_paiements.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        periodes = PeriodePaiement.objects.all().prefetch_related('classe', 'examen')
+        context.update({
+            'periodes': periodes,
+            'stats': {
+                'total': periodes.count(),
+                'actives': periodes.filter(date_fin__gte=timezone.now()).count(),
+                'montant_moyen': periodes.aggregate(Avg('montant_total'))['montant_total__avg'] or 0
+            }
+        })
+        return context
+
+
+
+
+
+class ValiderPaiementView(PermissionRequiredMixin, UpdateView):
+    permission_required = 'paiement.confirmer_paiement'
+    model = Paiement
+    form_class = ValiderPaiementForm
+    template_name = 'APP_G2S/composant-comptable/validation_paiement.html'
+
+    def form_valid(self, form):
+        paiement = form.save(commit=False)
+        if form.cleaned_data['statut_paiement'] == 'ANNULE':
+            paiement._mettre_a_jour_tranche(reset=True)
+        paiement.save()
+        messages.success(self.request, "Statut du paiement mis à jour")
+        return redirect('suivi-paiements')
+
+
+class CaisseDashboardView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    permission_required = 'paiement.add_paiement'
+    template_name = 'APP_G2S/composant-comptable/caisse_dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['paiements_jour'] = Paiement.objects.filter(
+            date_paiement__date=timezone.now().date(),
+            caissier=self.request.user
+        )
+        return context
+
+# @administrateur_required
+@method_decorator(transaction.atomic, name='post')
+class EncaissementView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    permission_required = 'paiement.add_paiement'
+    raise_exception = True
+    permission_required = 'paiement.add_paiement'
+    form_class = PaiementEspeceForm
+    template_name = 'APP_G2S/composant-comptable/encaissement.html'
+    success_url = reverse_lazy('caisse-dashboard')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['classes'] = Classe.objects.all().order_by('niveau', 'section')
+        return context
+
+
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
+    @transaction.atomic
+    def form_valid(self, form):
+        paiement = form.save(commit=False)
+        paiement.caissier = self.request.user
+        paiement.mode_paiement = 'ESPECES'
+        paiement = form.save(commit=False)
+        paiement.tranche = form.cleaned_data.get('tranche')
+        paiement.save()
+
+        # Mise à jour du statut de la tranche
+        if paiement.tranche:
+            self._update_tranche_status(paiement.tranche)
+
+        # Génération PDF
+        self._generate_quittance(paiement)
+
+        messages.success(self.request, f"Paiement enregistré - Quittance #{paiement.numero_quittance}")
+        return super().form_valid(form)
+
+    def _update_tranche_status(self, tranche):
+        total_paye = tranche.paiement_set.aggregate(total=Sum('montant_paye'))['total'] or 0
+
+        if total_paye >= tranche.montant:
+            tranche.statut = 'PAYE'
+        elif total_paye > 0:
+            tranche.statut = 'PARTIEL'
+        tranche.save()
+
+    def _generate_quittance(self, paiement):
+        # Intégration de WeasyPrint pour générer PDF
+
+
+        html_string = render_to_string('paiement/quittance_pdf.html', {'paiement': paiement})
+        HTML(string=html_string).write_pdf(
+            f"media/quittances/{paiement.numero_quittance}.pdf"
+        )
+
+
+class AnnulationPaiementView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    permission_required = 'paiement.delete_paiement'
+    model = Paiement
+    fields = []
+    template_name = 'APP_G2S/composant-comptable/annulation_paiement.html'
+    success_url = reverse_lazy('caisse-dashboard')
+
+    @transaction.atomic
+    def form_valid(self, form):
+        paiement = self.get_object()
+
+        if paiement.est_confirme:
+            messages.error(self.request, "Impossible d'annuler un paiement confirmé")
+            return redirect('caisse-dashboard')
+
+        # Remise à zéro de la tranche
+        if paiement.tranche:
+            tranche = paiement.tranche
+            tranche.statut = 'ECHEU' if tranche.date_echeance < timezone.now().date() else 'NON_ECHEU'
+            tranche.save()
+
+        paiement.delete()
+        messages.success(self.request, "Paiement annulé avec succès")
+        return super().form_valid(form)
+
+
+def get_tranche_info(request):
+    periode_id = request.GET.get('periode_id')
+    eleve_id = request.GET.get('eleve_id')
+
+    periode = get_object_or_404(PeriodePaiement, id=periode_id)
+    eleve = get_object_or_404(Eleve, id=eleve_id)
+
+    tranche = periode.prochaine_tranche_eleve(eleve)
+
+    return JsonResponse({
+        'tranche_num': f"Tranche {tranche.ordre}" if tranche else "Complet",
+        'montant_restant': float(tranche.montant_restant(eleve)) if tranche else 0
     })
 
+
+
+
+
+
+
 @require_GET
+@tenant_required
+@administrateur_required
 def charger_donnees_eleve(request, eleve_id):
     try:
         eleve = Eleve.objects.get(id=eleve_id)
@@ -1107,6 +1585,8 @@ def charger_donnees_eleve(request, eleve_id):
 
 
 @require_GET
+@tenant_required
+@administrateur_required
 def get_matieres_par_classe(request):
     eleve_id = request.GET.get('eleve_id')
     try:
@@ -1117,7 +1597,9 @@ def get_matieres_par_classe(request):
         return JsonResponse([], safe=False)
 
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='modifier_statut_examen', model=Examen, id_param='examen_id')
 def modifier_statut_examen(request, examen_id):
     examen = get_object_or_404(Examen, id=examen_id)
 
@@ -1137,28 +1619,63 @@ def modifier_statut_examen(request, examen_id):
     })
 
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def liste_absences(request):
+    active_period = get_active_period()
     absences = Absence.objects.select_related('eleve', 'emploi_du_temps').order_by('-date')
 
     # Filtres
     eleve_id = request.GET.get('eleve')
     date = request.GET.get('date')
+    periode_id = request.GET.get('periode')
+    classe_id = request.GET.get('classe')
+    annee = request.GET.get('annee')
+
 
     if eleve_id:
         absences = absences.filter(eleve__id=eleve_id)
     if date:
         absences = absences.filter(date=date)
+    if periode_id and periode_id.isdigit():
+        absences = absences.filter(emploi_du_temps__periode__id=int(periode_id))
+    if classe_id and classe_id.isdigit():
+        absences = absences.filter(eleve__classe__id=int(classe_id))
+
+
+    export_url = reverse('pdf_absences') + f'?classe_id={classe_id}&date_debut={date}&date_fin={date}'
 
     context = {
         'absences': absences,
+        "annees": FiltreService.get_academie_years(),
+        "selected_annee": annee,
         'eleves': Eleve.objects.all(),
+        'periodes': Periode.objects.all(),
+        'classes_dispo': Classe.objects.all(),
+        'active_period': active_period,
+        'selected_eleve': eleve_id,
+        'selected_periode': periode_id,
+        'selected_classe': classe_id,
+        'selected_date': date,
+        'export_url': export_url,
     }
     return render(request, 'APP_G2S/composant-admin/liste_absences.html', context)
 
 
+@tenant_required
 @administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
 def ajouter_absence(request):
+    # Récupérer l'ID de la classe depuis les paramètres GET pour filtrer les emplois du temps
+    classe_id = request.GET.get('classe_id')
+    emplois = EmploiDuTemps.objects.all().order_by('date')
+    eleves = Eleve.objects.all()
+    if classe_id and classe_id.isdigit():
+        emplois = emplois.filter(classe_id=classe_id)
+        # emplois = emplois.filter(classe_id=classe_id)
+        eleves = eleves.filter(classe_id=classe_id)
+
     if request.method == 'POST':
         form = AbsenceForm(request.POST)
         if form.is_valid():
@@ -1166,14 +1683,16 @@ def ajouter_absence(request):
                 absence = form.save(commit=False)
                 absence.date = absence.emploi_du_temps.date
                 absence.save()
+                # Ajout du nom et prénom de l'élève dans le message SMS
                 message = (
-                    f"Alerte absence : {absence.eleve} absent(e) le {absence.date.strftime('%d/%m')} "
-                    f"en {absence.emploi_du_temps.matiere.nom}. "
-                    f"Justification : {request.POST.get('url') or request.META.get('HTTP_REFERER') or request.build_absolute_uri()}/absences/{absence.id}"
+                    f"Alerte absence : {absence.eleve.prenom} {absence.eleve.nom} absent(e) le {absence.date.strftime('%d/%m')} "
+                    f"en {absence.emploi_du_temps.matiere.nom}."
+                    f" Justification : {request.POST.get('url') or request.META.get('HTTP_REFERER') or request.build_absolute_uri()}/absences/{absence.id}"
                 )
-                SMSService.send_sms(
-                    numero=str(absence.eleve.telephone),
-                    message=message
+                sms_service = SmsOrangeService()
+                sms_service.envoyer_sms_orange(
+                    str(absence.eleve.telephone),
+                    message
                 )
                 messages.success(request, "Absence enregistrée avec succès")
             except Exception as e:
@@ -1181,14 +1700,25 @@ def ajouter_absence(request):
                 messages.error(request, f"Erreur : {str(e)}")
                 logger.error(f"Erreur envoi SMS : {str(e)}")
         else:
-            messages.error(request, "Formulaire invalide")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = AbsenceForm()
 
-    return render(request, 'APP_G2S/composant-admin/ajouter_absence.html', {'form': form})
+    # Passer la liste filtrée des emplois du temps et la classe sélectionnée au template
+    return render(request, 'APP_G2S/composant-admin/ajouter_absence.html', {
+        'form': form,
+        'emplois': emplois,
+        'classes': Classe.objects.all(),
+        'classe_selected': classe_id,
+        'eleves': eleves
+    })
 
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='supprimer_absence', model=Absence, id_param='absence_id')
 def supprimer_absence(request, absence_id):
     absence = get_object_or_404(Absence, id=absence_id)
     if request.method == 'POST':
@@ -1198,7 +1728,9 @@ def supprimer_absence(request, absence_id):
     return render(request, 'APP_G2S/composant-admin/supprimer_absence.html', {'absence': absence})
 
 
+@tenant_required
 @administrateur_required
+@requires_approval(action_type='modifier_absence', model=Absence, id_param='absence_id')
 def modifier_absence(request, absence_id):
     absence = get_object_or_404(Absence, id=absence_id)
     if request.method == 'POST':
@@ -1245,65 +1777,94 @@ def generer_recu_paiement(paiement):
     return response
 
 
-@administrateur_required
+@tenant_required
+@comptable_only
 @transaction.atomic
-def enregistrer_paiement_especes(request, eleve_id=None):
-    eleve = get_object_or_404(Eleve, id=eleve_id) if eleve_id else None
-    context = {'daily_total': 0, 'transaction_count': 0}
+def enregistrer_paiement_especes(request, eleve_id):
+    eleve = Eleve.objects.get(pk=eleve_id)
+    periode = None
+    montant_restant = Decimal('0.00')
 
     if request.method == 'POST':
-        form = PaiementFormEspeces(request.POST)
+        form = PaiementForm(request.POST)
         if form.is_valid():
-            try:
-                paiement = form.save(commit=False)
-                paiement.mode_paiement = 'ESPECES'
-                paiement.statut_paiement = 'REUSSI'
-                paiement.encaisser_par = request.user
+            paiement = form.save(commit=False)
+            paiement.eleve = eleve
 
-                # Validation financière
-                periode = paiement.periode
-                montant_du = periode.montant - eleve.total_paye_periode(periode)
-                if paiement.montant_paye > montant_du:
-                    raise ValidationError("Le montant dépasse le solde dû pour cette période")
+            # Récupération de la période de paiement
+            periode = paiement.periode
+            montant_total = periode.montant
+
+            # Vérification du mode de paiement
+            if periode.mode_paiement == 'FULL':
+                # Validation paiement complet
+                if paiement.montant_paye != montant_total:
+                    form.add_error('montant_paye',
+                                   f"Le paiement complet doit être de {montant_total} FCFA")
+                    return render(request, 'paiement.html', {'form': form})
+
+            else:  # Mode échelonné
+                # Calcul du total déjà payé
+                total_paye = Paiement.objects.filter(
+                    periode=periode,
+                    eleve=eleve,
+                    statut_paiement='REUSSI'
+                ).aggregate(total=models.Sum('montant_paye'))['total'] or Decimal('0.00')
+
+                montant_restant = montant_total - total_paye
+
+                # Validation du montant
+                if paiement.montant_paye <= Decimal('0.00'):
+                    form.add_error('montant_paye',
+                                   "Le montant doit être positif")
+                elif paiement.montant_paye > montant_restant:
+                    form.add_error('montant_paye',
+                                   f"Montant restant à payer : {montant_restant} FCFA")
+
+            if not form.errors:
+                # Marquer le paiement selon le solde
+                if paiement.montant_paye == montant_restant:
+                    paiement.statut_paiement = 'REUSSI'
+                    messages.success(request, "Paiement final effectué avec succès !")
+                else:
+                    paiement.statut_paiement = 'PARTIEL'
+                    messages.warning(request,
+                                     f"Paiement partiel enregistré. Solde restant : {montant_restant - paiement.montant_paye} FCFA")
 
                 paiement.save()
 
+                # Mettre à jour le statut de suspension
+                nouveau_solde = montant_restant - paiement.montant_paye
+                if nouveau_solde <= Decimal('0.00'):
+                    eleve.suspendu = False
+                    eleve.save()
+                    # verifier_suspension_eleve.delay(eleve.id)
 
-                pdf_response = generer_recu_paiement(paiement)
-                pdf_name = f"recu_{paiement.id}.pdf"
+                # Envoyer confirmation
+                # envoyer_confirmation_paiement.delay(
+                #     eleve.id,
+                #     paiement.montant_paye,
+                #     nouveau_solde,
+                #     periode.nom
+                # )
 
+                return redirect('historique_paiements', eleve_id=eleve.id)
 
-                paiement.receipt_pdf.save(pdf_name, ContentFile(pdf_response.content))
+    else:
+        form = PaiementForm()
 
-                messages.success(request, "Paiement enregistré avec succès")
-                return redirect('enregistrer_paiement_especes', eleve_id=eleve.id)
-
-            except ValidationError as e:
-                messages.error(request, str(e))
-
-    # Statistiques journalières
-    today = timezone.now().date()
-    context.update({
-        'recent_payments': Paiement.objects.filter(
-            date_paiement__date=today
-        ).select_related('eleve', 'periode')[:10],
-        'daily_total': Paiement.objects.filter(
-            date_paiement__date=today
-        ).aggregate(total=Sum('montant_paye'))['total'] or 0,
-        'transaction_count': Paiement.objects.filter(
-            date_paiement__date=today
-        ).count(),
-        'cancellation_count': Paiement.objects.filter(
-            date_paiement__date=today,
-            statut_paiement='ANNULE'
-        ).count(),
-        'last_transaction_id': Paiement.objects.latest('id').id if Paiement.objects.exists() else 0
-    })
-
-    return render(request, 'APP_G2S/composant-admin/paiement_especes.html', context)
+    context = {
+        'form': form,
+        'eleve': eleve,
+        'periode': periode,
+        'montant_restant': montant_restant,
+        'historique_paiements': Paiement.objects.filter(eleve=eleve).order_by('-date_paiement')
+    }
+    return render(request, 'APP_G2S/paiement/enregistrement.html', context)
 
 
-@administrateur_required
+@tenant_required
+@comptable_only
 def exporter_paiements_excel(request):
     paiements = Paiement.objects.select_related('eleve').filter(mode_paiement='ESPECES')
 
@@ -1333,8 +1894,8 @@ def exporter_paiements_excel(request):
             p.reference,
             p.eleve.nom,
             p.eleve.prenom,
-            p.eleve.nom_parent,
-            p.eleve.prenom_parent,
+            p.eleve.nom_pere,
+            p.eleve.prenom_pere,
             p.eleve.classe.nom,
             p.montant_paye,
             p.encaisser_par.get_full_name() if p.encaisser_par else 'Système'
@@ -1343,7 +1904,8 @@ def exporter_paiements_excel(request):
     wb.save(response)
     return response
 
-@administrateur_required
+@tenant_required
+@comptable_only
 def recherche_eleves(request):
     query = request.GET.get('q', '')
     eleves = Eleve.objects.filter(
@@ -1362,7 +1924,8 @@ def recherche_eleves(request):
 
     return JsonResponse({'results': results})
 
-@administrateur_required
+@tenant_required
+@comptable_only
 def annuler_paiement(request, paiement_id):
     paiement = get_object_or_404(Paiement, id=paiement_id)
     if paiement.mode_paiement == 'ESPECES':
@@ -1370,42 +1933,28 @@ def annuler_paiement(request, paiement_id):
         messages.success(request, "Paiement en espèces annulé avec succès")
     return redirect('gerer_paiements')
 
-@administrateur_required
-def dashboard_paiements(request):
-    # Gestion du formulaire de période de paiement
-    periode_form = PeriodePaiementForm(request.POST or None)
-    if request.method == 'POST' and 'submit_periode' in request.POST:
-        if periode_form.is_valid():
-            periode_form.save()
-            messages.success(request, "Période créée avec succès!")
-            return redirect('dashboard_paiements')
+@method_decorator(comptable_only, name='dispatch')
+class DashboardPaiementsView(TemplateView):
+    template_name = 'APP_G2S/composant-comptable/dashboard_paiements.html'
 
-    # Gestion du formulaire de paiement en espèces
-    paiement_form = PaiementFormEspeces(request.POST or None)
-    if request.method == 'POST' and 'submit_paiement' in request.POST:
-        if paiement_form.is_valid():
-            paiement = paiement_form.save(commit=False)
-            if paiement.eleve.classe != paiement.periode.classe:
-                messages.error(request, "La période ne correspond pas à la classe de l'élève.")
-            else:
-                paiement.mode_paiement = 'ESPECES'
-                paiement.statut_paiement = 'REUSSI'
-                paiement.save()
-                messages.success(request, "Paiement enregistré!")
-                return redirect('dashboard_paiements')
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stats'] = {
+            'paiements_mois': Paiement.objects.filter(
+                date_paiement__month=timezone.now().month
+            ).aggregate(Sum('montant_paye')),
+            'evolution': Paiement.objects.annotate(
+                mois=TruncMonth('date_paiement')
+            ).values('mois').annotate(total=Sum('montant_paye'))
+        }
+        return context
 
-    # Récupération des données
-    periodes = PeriodePaiement.objects.all()
-    paiements = Paiement.objects.select_related('eleve', 'periode').order_by('-date_paiement')[:10]
 
-    context = {
-        'periode_form': periode_form,
-        'paiement_form': paiement_form,
-        'periodes': periodes,
-        'paiements': paiements,
-    }
-    return render(request, 'APP_G2S/composant-admin/dashboard_paiements.html', context)
+
+
 @require_GET
+@tenant_required
+@administrateur_required
 def get_emplois(request):
     eleve_id = request.GET.get('eleve_id')
     try:
@@ -1423,52 +1972,10 @@ def callback_paiement(request):
         # Valider la transaction avec l'API mobile money
         # Mettre à jour le statut du paiement
         return JsonResponse({'status': 'success'})
+    return None
 
 
-
-
-
-@administrateur_required
-def generer_pdf_absences(request):
-    absences = Absence.objects.select_related('eleve', 'emploi_du_temps').order_by('-date')
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="rapport_absences.pdf"'
-
-    doc = SimpleDocTemplate(response, pagesize=letter)
-    elements = []
-    styles = getSampleStyleSheet()
-
-    elements.append(Paragraph("Rapport des Absences", styles['Title']))
-
-    data = [['Élève', 'Date', 'Matière', 'Statut']]
-    for absence in absences:
-        data.append([
-            f"{absence.eleve.prenom} {absence.eleve.nom}",
-            absence.date.strftime("%d/%m/%Y"),
-            absence.emploi_du_temps.matiere.nom,
-            absence.get_justification_status_display()
-        ])
-
-    table = Table(data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 14),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-
-    elements.append(table)
-    doc.build(elements)
-    return response
-
-
-
-
+@tenant_required
 @administrateur_required
 def exporter_excel_absences(request):
     absences = Absence.objects.select_related('eleve', 'emploi_du_temps').order_by('-date')
@@ -1498,23 +2005,27 @@ def exporter_excel_absences(request):
 
 
 
-@administrateur_required
-def choix_mode_paiement(request, eleve_id):
-    eleve = get_object_or_404(Eleve, id=eleve_id)
-    periodes_impayees = PeriodePaiement.objects.filter(
-        classe=eleve.classe,
-        date_fin__lt=datetime.today()
-    ).exclude(paiements__eleve=eleve)
+@method_decorator(comptable_only, name='dispatch')
+class ChoixModePaiementView(TemplateView):
+    template_name = 'APP_G2S/composant-comptable/choix_paiement.html'
 
-    return render(request, 'APP_G2S/composant-admin/choix_paiement.html', {
-        'eleve': eleve,
-        'periodes_impayees': periodes_impayees
-    })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        eleve_id = self.kwargs.get('eleve_id')
+        eleve = get_object_or_404(Eleve, id=eleve_id)
+        periodes_impayees = PeriodePaiement.objects.filter(
+            classe=eleve.classe,
+            date_fin__lt=datetime.today()
+        ).exclude(paiements__eleve=eleve)
 
-# @transaction.atomic
-@csrf_exempt
-def initier_paiement_mobile(request):
-    if request.method == 'POST':
+        context['eleve'] = eleve
+        context['periodes_impayees'] = periodes_impayees
+        return context
+
+@method_decorator(csrf_exempt, name='dispatch')
+class InitierPaiementMobileView(View):
+
+    def post(self, request, *args, **kwargs):
         data = json.loads(request.body)
         eleve_id = data['eleve_id']
         montant = data['montant']
@@ -1543,15 +2054,142 @@ def initier_paiement_mobile(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
 
-    return HttpResponseForbidden()
+    def get(self, request, *args, **kwargs):
+        return HttpResponseForbidden()
 
 
-@administrateur_required
-def historique_paiements(request, eleve_id):
-    paiements = Paiement.objects.select_related('eleve', 'periode').order_by('-date')
-    eleve = get_object_or_404(Eleve, id=eleve_id)
-    return render(request, 'APP_G2S/composant-admin/historique_paiements.html', {
-        'paiements': paiements,
-        'eleve': eleve
+@method_decorator(multi_role_required(directeur_required, comptable_required), name='dispatch')
+class HistoriquePaiementsView(TemplateView):
+    template_name = 'APP_G2S/composant-comptable/historique_paiement.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        eleve_id = self.kwargs.get('eleve_id')
+        paiements = Paiement.objects.select_related('eleve', 'periode').order_by('-date')
+        eleve = get_object_or_404(Eleve, id=eleve_id)
+
+        context['paiements'] = paiements
+        context['eleve'] = eleve
+        return context
+
+
+
+
+
+
+'''
+
+la partie dedie aux vues de modificarions
+
+
+'''
+
+
+@tenant_required
+@censeur_only
+@requires_approval(action_type='modifier_examen', model=Examen, id_param='examen_id')
+def modifier_examen(request, examen_id):
+    examen = get_object_or_404(Examen, id=examen_id)
+    if request.method == 'POST':
+        form = ExamenForm(request.POST, instance=examen)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Examen modifié avec succès !")
+            return redirect('liste_examens')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = ExamenForm(instance=examen)
+
+    return render(request, 'APP_G2S/composant-admin/modifier_examen.html', {
+        'form': form,
+        'examen': examen
     })
 
+
+@tenant_required
+@administrateur_required
+
+def ajouter_historique_academique(request):
+    if request.method == 'POST':
+        form = HistoriqueAcademiqueForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Historique académique ajouté avec succès.")
+            return redirect('liste_historique_academique')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    else:
+        form = HistoriqueAcademiqueForm()
+    return render(request, 'APP_G2S/composant-admin/ajouter_historique_academique.html', {'form': form})
+
+@tenant_required
+@administrateur_required
+@multi_role_required(directeur_required, censeur_required, surveillant_required)
+def liste_historique_academique(request):
+    historiques = HistoriqueAcademique.objects.select_related('eleve', 'periode').order_by('-periode')
+    return render(request, 'APP_G2S/composant-admin/liste_historique_academique.html', {'historiques': historiques})
+
+@tenant_required
+@administrateur_required
+@multi_role_required(directeur_required, censeur_required)
+def statuts_academiques(request):
+    # Récupérer la dernière période clôturée
+    derniere_periode = Periode.objects.filter(cloture=True).order_by('-date_fin').first()
+    # Si aucune période clôturée, utiliser la période active
+    periode = derniere_periode or Periode.objects.filter(is_active=True).first()
+
+    # Subquerys pour dernier statut et moyenne
+    dernier_statut_subquery = Subquery(
+        HistoriqueAcademique.objects.filter(
+            eleve=OuterRef('pk')
+        ).order_by('-periode__date_fin').values('decision')[:1]
+    )
+    derniere_moyenne_subquery = Subquery(
+        HistoriqueAcademique.objects.filter(
+            eleve=OuterRef('pk')
+        ).order_by('-periode__date_fin').values('moyenne')[:1]
+    )
+
+    eleves = Eleve.objects.annotate(
+        dernier_statut=dernier_statut_subquery,
+        derniere_moyenne=derniere_moyenne_subquery
+    ).select_related('classe')
+
+    # Catégoriser les élèves
+    promus = []
+    redoublants = []
+    expulses = []
+
+    for eleve in eleves:
+        if eleve.est_expulse:
+            expulses.append(eleve)
+        elif eleve.dernier_statut == 'ADMIS' and getattr(eleve.classe, 'niveau_superieur', None):
+            promus.append(eleve)
+        elif eleve.dernier_statut == 'REDOUBLE':
+            redoublants.append(eleve)
+
+    context = {
+        'promus': promus,
+        'redoublants': redoublants,
+        'expulses': expulses,
+        'periode': periode,
+        'total_eleves': eleves.count(),
+        'now': timezone.now()
+    }
+
+    return render(request, 'APP_G2S/composant-admin/statuts_academiques.html', context)
+
+
+def erreur_user_type(request):
+    """
+    Vue pour afficher une erreur de type d'utilisateur.
+    Cette vue est appelée lorsqu'un utilisateur tente d'accéder à une fonctionnalité
+    avec un type d'utilisateur incompatible.
+    """
+    error_message = request.GET.get('message', 'Type d\'utilisateur incompatible avec cette action.')
+    return render(request, 'error_flotant/erreur_user_type.html', {'error_message': error_message})

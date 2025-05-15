@@ -1,96 +1,99 @@
 {% extends 'base_admin.html' %}
 {% load static %}
+{% load perso_filtre %}
 
 {% block content %}
 {% if messages %}
-                <div class="space-y-2">
-                    {% for message in messages %}
-                        <div class="px-4 py-2 rounded-lg text-white font-medium bg-red-600">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-<div class="container-fluid px-4 py-5">
-    <div class="card shadow-lg border-0 rounded-4">
-        <div class="card-header bg-primary text-white py-3">
-            <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Créer un nouvel examen</h4>
+    <div class="space-y-2">
+        {% for message in messages %}
+            <div class="px-4 py-2 rounded-lg text-white font-medium {% if message.tags == 'error' %}bg-red-600{% elif message.tags == 'success' %}bg-green-600{% elif message.tags == 'warning' %}bg-yellow-500{% else %}bg-blue-600{% endif %}">
+                <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'success' %}fa-check-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+<div class="container mx-auto px-4 py-5">
+    <div class="bg-white shadow-lg rounded-lg">
+        <div class="bg-blue-600 text-white py-4 px-6 rounded-t-lg">
+            <h4 class="text-lg font-semibold"><i class="fas fa-plus-circle mr-2"></i>Créer un nouvel examen</h4>
         </div>
 
-        <div class="card-body p-4">
-            <form method="POST" class="needs-validation" novalidate>
+        <div class="p-6">
+            <form method="POST" class="space-y-6">
                 {% csrf_token %}
 
-                <div class="row g-4">
-
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Nom -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.nom.label }}</label>
-                        {{ form.nom }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.nom.label }}</label>
+                        {{ form.nom|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.nom.errors %}
-                            <div class="text-danger small mt-1">{{ form.nom.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.nom.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
                     <!-- Date -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.date.label }}</label>
-                        {{ form.date }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.date.label }}</label>
+                        {{ form.date|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.date.errors %}
-                            <div class="text-danger small mt-1">{{ form.date.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.date.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.date_fin.label }}</label>
-                        {{ form.date_fin }}
+                    <!-- Date Fin -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.date_fin.label }}</label>
+                        {{ form.date_fin|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.date_fin.errors %}
-                            <div class="text-danger small mt-1">{{ form.date_fin.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.date_fin.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
                     <!-- Classe -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.classe.label }}</label>
-                        {{ form.classe }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.classe.label }}</label>
+                        {{ form.classe|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.classe.errors %}
-                            <div class="text-danger small mt-1">{{ form.classe.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.classe.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
                     <!-- Matière -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.matiere.label }}</label>
-                        {{ form.matiere }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.matiere.label }}</label>
+                        {{ form.matiere|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.matiere.errors %}
-                            <div class="text-danger small mt-1">{{ form.matiere.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.matiere.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
                     <!-- Validité -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.validite.label }}</label>
-                        {{ form.validite }}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.validite.label }}</label>
+                        {{ form.validite|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
                         {% if form.validite.errors %}
-                            <div class="text-danger small mt-1">{{ form.validite.errors.as_text }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                    <!-- periode -->
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.periode.label }}</label>
-                        {{ form.periode }}
-                        {% if form.periode.errors %}
-                            <div class="text-danger small mt-1">{{ form.periode.errors.as_text }}</div>
+                            <p class="text-red-600 text-sm mt-1">{{ form.validite.errors.as_text }}</p>
                         {% endif %}
                     </div>
 
-                <div class="mt-4 d-flex gap-2">
-                    <button type="submit" class="btn btn-success px-4">
-                        <i class="fas fa-save me-2"></i>Enregistrer
+                    <!-- Période -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">{{ form.periode.label }}</label>
+                        {{ form.periode|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500" }}
+                        {% if form.periode.errors %}
+                            <p class="text-red-600 text-sm mt-1">{{ form.periode.errors.as_text }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex space-x-4 mt-6">
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
                     </button>
-                    <a href="{% url 'liste_examens' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-times me-2"></i>Annuler
+                    <a href="{% url 'liste_examens' %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md shadow hover:bg-gray-300">
+                        <i class="fas fa-times mr-2"></i>Annuler
                     </a>
                 </div>
             </form>
@@ -98,42 +101,20 @@
     </div>
 </div>
 {% endblock %}
+
 {% block extrajs %}
-<style>
-    .card {
-        border-radius: 1rem;
-    }
-    .form-control.is-invalid, .form-select.is-invalid {
-        border-color: #dc3545;
-    }
-    .invalid-feedback {
-        display: block;
-        color: #dc3545;
-        font-size: 0.875em;
-        margin-top: 4px;
-    }
-    #date-error {
-        color: #dc3545;
-        font-size: 0.875em;
-        margin-top: 5px;
-        display: none;
-    }
-</style>
-
 <script>
-
 document.addEventListener('DOMContentLoaded', function () {
     const dateInput = document.getElementById('id_date');
     const dateFinInput = document.getElementById('id_date_fin');
     const errorDiv = document.createElement('div');
     errorDiv.id = 'date-error';
+    errorDiv.className = 'text-red-600 text-sm mt-1';
     dateFinInput.parentNode.insertBefore(errorDiv, dateFinInput.nextSibling);
 
     function validateDates() {
         const dateDebut = new Date(dateInput.value);
         const dateFin = new Date(dateFinInput.value);
-        const today = new Date();
-        today.setHours(0,0,0,0);
 
         if (dateDebut > dateFin) {
             errorDiv.textContent = "La date de début doit être antérieure à la date de fin.";
@@ -154,6 +135,5 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
-
 </script>
 {% endblock %}

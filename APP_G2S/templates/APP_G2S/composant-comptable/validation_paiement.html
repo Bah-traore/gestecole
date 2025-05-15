@@ -1,0 +1,25 @@
+{% extends "base_admin.html" %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Validation du paiement #{{ object.numero_quittance }}</h2>
+  
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        
+        <div class="mb-3">
+          <label class="form-label">Statut actuel :</label>
+          <span class="badge bg-{{ object.get_statut_paiement_display|lower }}">{{ object.get_statut_paiement_display }}</span>
+        </div>
+        
+        {{ form.as_p }}
+        
+        <button type="submit" class="btn btn-success">Valider</button>
+        <a href="{% url 'suivi-paiements' %}" class="btn btn-secondary">Annuler</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

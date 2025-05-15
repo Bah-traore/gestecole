@@ -1,0 +1,12 @@
+{% extends "base_core_admin.html" %}
+
+{% block content %}
+<h2>École</h2>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enregistrer</button>
+</form>
+
+<a href="{% url 'core_admin:tenants_list' %}">Retour à la liste des écoles</a>
+{% endblock %}

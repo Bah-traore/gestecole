@@ -1,0 +1,16 @@
+{% extends "base_core_admin.html" %}
+
+{% block content %}
+<h2>Liste des écoles</h2>
+<a href="{% url 'core_admin:tenant_create' %}">Créer une nouvelle école</a>
+<ul>
+    {% for tenant in tenants %}
+        <li>
+            {{ tenant.nom }} ({{ tenant.subdomain }})
+            <a href="{% url 'core_admin:tenant_edit' tenant.id %}">Modifier</a>
+            <a href="{% url 'core_admin:tenant_delete' tenant.id %}">Supprimer</a>
+        </li>
+    {% endfor %}
+</ul>
+
+{% endblock %}

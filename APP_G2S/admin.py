@@ -8,6 +8,9 @@ from APP_G2S.models import *
 
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib import admin
+from django.urls import path
+from django.shortcuts import redirect
 
 HIERARCHY = {
     'DIRECTEUR': ['view_all', 'approve_all'],
@@ -64,6 +67,22 @@ class BulletinMatiereAdmin(admin.ModelAdmin):
 @admin.register(Periode)
 class PeriodeAdmin(admin.ModelAdmin):
     list_display = ['numero','date_debut', 'date_fin', 'annee_scolaire', 'cloture']
+    actions = ['cloturer_periode']
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('promotion-auto/', self.admin_site.admin_view(self.promotion_auto))
+        ]
+        return custom_urls + urls
+
+    def promotion_auto(self, request):
+        from django.core.management import call_command
+        call_command('promotion_auto')
+        return redirect('..')
+
+    def cloturer_periode(self, request, queryset):
+        queryset.update(cloture=True)
 
 @admin.register(Classe)
 class ClasseAdmin(admin.ModelAdmin):
@@ -108,4 +127,4 @@ class ExamenAdmin(admin.ModelAdmin):
     list_display = ['nom', 'date']
 @admin.register(PeriodePaiement)
 class PeriodePaiementAdmin(admin.ModelAdmin):
-    list_display = ['examen', 'nom', 'date_debut', 'date_fin', 'montant', 'classe']
+    list_display = ['examen', 'nom', 'date_debut', 'date_fin', 'montant_total', 'rappel_jours', 'modalites_paiement', 'mode_paiement', 'nombre_tranches']

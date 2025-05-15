@@ -23,25 +23,6 @@ def generate_secure_code(length=6):
         raise ValueError("Longueur invalide")
     return secrets.randbelow(10 ** (length))  # Code numérique sécurisé
 
-
-@ratelimit(key='ip', rate='3/m')
-def send_secure_sms(telephone, code):
-    """Envoie un SMS sécurisé avec limitation de débit"""
-    print(telephone, code)
-    return code
-'''    try:
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            body=f"Votre code de vérification: {code} (valide 10min)",
-            from_=settings.TWILIO_PHONE_NUMBER,
-            to=telephone
-        )
-        return message.sid
-    except TwilioRestException as e:
-        raise RuntimeError(f"Échec envoi SMS: {str(e)}")'''
-
-
-
 class TemporaryFileManager:
     """Gère les fichiers temporaires avec nettoyage automatique"""
 

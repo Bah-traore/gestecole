@@ -1,0 +1,84 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow border-0 rounded-4 bg-dark text-light">
+        <div class="card-header bg-gradient-primary text-white rounded-top-4">
+            <h4 class="mb-0 fw-bold">
+                <i class="fas fa-user-graduate me-2"></i>
+                Statuts académiques des élèves
+            </h4>
+            <div class="mt-2 small text-white-50">
+                Période : {{ periode }} | Total élèves : {{ total_eleves }}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card bg-gradient-success text-white h-100 shadow border-0">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="fas fa-arrow-up me-2"></i>Promus</h5>
+                            <h2 class="fw-bold">{{ promus|length }}</h2>
+                            <ul class="list-unstyled mt-3 mb-0">
+                                {% for eleve in promus %}
+                                    <li>
+                                        <i class="fas fa-user-circle me-1"></i>
+                                        {{ eleve.prenom }} {{ eleve.nom }}
+                                        <span class="badge bg-light text-success ms-2">{{ eleve.classe }}</span>
+                                        <span class="badge bg-white text-success ms-2">Moy: {{ eleve.derniere_moyenne|default:"-" }}</span>
+                                    </li>
+                                {% empty %}
+                                    <li class="text-white-50">Aucun élève promu</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-warning text-dark h-100 shadow border-0">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="fas fa-redo me-2"></i>Redoublants</h5>
+                            <h2 class="fw-bold">{{ redoublants|length }}</h2>
+                            <ul class="list-unstyled mt-3 mb-0">
+                                {% for eleve in redoublants %}
+                                    <li>
+                                        <i class="fas fa-user-circle me-1"></i>
+                                        {{ eleve.prenom }} {{ eleve.nom }}
+                                        <span class="badge bg-light text-warning ms-2">{{ eleve.classe }}</span>
+                                        <span class="badge bg-white text-warning ms-2">Moy: {{ eleve.derniere_moyenne|default:"-" }}</span>
+                                    </li>
+                                {% empty %}
+                                    <li class="text-dark-50">Aucun redoublant</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-danger text-white h-100 shadow border-0">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="fas fa-user-slash me-2"></i>Expulsés</h5>
+                            <h2 class="fw-bold">{{ expulses|length }}</h2>
+                            <ul class="list-unstyled mt-3 mb-0">
+                                {% for eleve in expulses %}
+                                    <li>
+                                        <i class="fas fa-user-circle me-1"></i>
+                                        {{ eleve.prenom }} {{ eleve.nom }}
+                                        <span class="badge bg-light text-danger ms-2">{{ eleve.classe }}</span>
+                                        <span class="badge bg-white text-danger ms-2">Moy: {{ eleve.derniere_moyenne|default:"-" }}</span>
+                                    </li>
+                                {% empty %}
+                                    <li class="text-white-50">Aucun élève expulsé</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 text-end small text-white-50">
+                Dernière mise à jour : {{ now|date:"d/m/Y H:i" }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-5">
+    <div class="card border-0 shadow-lg rounded-5 bg-gradient-dark text-light">
+        <div class="card-header bg-gradient-danger text-white py-4 rounded-top-5 border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 fw-bold"><i class="fas fa-trash-alt me-2"></i>Supprimer la période scolaire</h3>
+            </div>
+        </div>
+        
+        <div class="card-body p-4 bg-gradient-dark text-light">
+            <div class="alert alert-danger rounded-4 shadow-sm">
+                <h4 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Attention !</h4>
+                <p>Vous êtes sur le point de supprimer la période scolaire suivante :</p>
+                <ul class="list-group list-group-flush bg-transparent mb-3">
+                    <li class="list-group-item bg-transparent text-light border-danger">
+                        <strong>Numéro :</strong> {{ periode.numero }}
+                    </li>
+                    <li class="list-group-item bg-transparent text-light border-danger">
+                        <strong>Année scolaire :</strong> {{ periode.annee_scolaire }}
+                    </li>
+                    <li class="list-group-item bg-transparent text-light border-danger">
+                        <strong>Classe :</strong> {{ periode.classe }}
+                    </li>
+                    <li class="list-group-item bg-transparent text-light border-danger">
+                        <strong>Dates :</strong> Du {{ periode.date_debut|date:"d/m/Y" }} au {{ periode.date_fin|date:"d/m/Y" }}
+                    </li>
+                </ul>
+                <p class="mb-0">Cette action est irréversible. Toutes les données associées à cette période seront définitivement supprimées.</p>
+            </div>
+            
+            <form method="POST">
+                {% csrf_token %}
+                
+                {% if is_censeur %}
+                <div class="card bg-dark border-0 shadow-sm rounded-4 mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-comment-alt me-2"></i>Commentaire pour le directeur</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">Veuillez expliquer pourquoi vous souhaitez supprimer cette période :</label>
+                            <textarea name="commentaire" class="form-control bg-dark text-light border-0 shadow-sm rounded-3" rows="4" required></textarea>
+                            <small class="form-text text-muted">Ce commentaire sera inclus dans la demande d'approbation envoyée au directeur.</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{% url 'gestion_periodes' %}" class="btn btn-secondary btn-lg rounded-pill px-4 shadow">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </a>
+                    <button type="submit" class="btn btn-danger btn-lg rounded-pill px-4 shadow">
+                        <i class="fas fa-trash-alt me-2"></i>Confirmer la suppression
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-dark {
+    background: linear-gradient(135deg, #23272b 0%, #181a1b 100%) !important;
+}
+.bg-gradient-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%) !important;
+}
+.rounded-5 {
+    border-radius: 1.5rem !important;
+}
+.rounded-4 {
+    border-radius: 1rem !important;
+}
+.list-group-item {
+    padding: 0.75rem 1.25rem;
+}
+</style>
+{% endblock %}

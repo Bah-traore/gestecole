@@ -3,16 +3,30 @@
 {% block content %}
 <main class="bg-gray-100 min-h-screen p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
-        
+            {% if Noperiode is None %}
+
+    {% include 'error_flotant/erreur_periode.html' %}
+
+       {% endif %}
         <div class="sm:flex sm:items-center">
             <div class="sm:flex-auto">
+
+<h1 class="text-center ">Données pour la période : {{ active_period.numero }} ({{ active_period.annee_scolaire }})</h1>
                 <h1 class="text-2xl font-bold mb-6 text-gray-800">Gestion des élèves</h1>
+                {% include "filtrePeriodeClasse/filtrerPeriodeClasse.html" %}
                 </div>
             <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
                 <a href="{% url 'ajouter_eleve' %}" class="btn btn-primary">
                     Ajouter un eleve
                 </a>
             </div>
+        </div>
+            <a href="{% url 'pdf_eleves' %}?{{ request.GET.urlencode }}" class="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Exporter PDF
+            </a>
         </div>
 
         <div class="bg-white rounded-xl shadow-lg overflow-hidden grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-4">
@@ -26,16 +40,16 @@
                                class="w-full px-3 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     
-                    <div>
+                    {% comment %} <div>
                         <label class="block text-sm font-medium mb-2">Classe</label>
                         <select name="class" class="w-full px-3 py-2 rounded-lg bg-gray-700 text-white" id="classSelect">
                             <option value="">Toutes</option>
-                            {% for classe in classes_uniques %}
+                            {% for classe in classes_dispo %}
                             
                                 <option value="{{ classe.id }}">{{ classe.niveau }} annee</option>
                             {% endfor %}
                         </select>
-                    </div>
+                    </div> {% endcomment %}
                     
                     <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
                         Rechercher

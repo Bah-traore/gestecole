@@ -38,15 +38,27 @@
                                     </label>
                                 </div>
                                 <div class="form-floating mb-3">
-                                    {{ form.prenom_parent }}
-                                    <label for="{{ form.prenom_parent.id_for_label }}" class="form-label">
-                                        <i class="fas fa-signature me-2"></i>Prénom parent
+                                    {{ form.prenom_pere }}
+                                    <label for="{{ form.prenom_pere.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Prénom pére
                                     </label>
                                 </div>
                                 <div class="form-floating mb-3">
-                                    {{ form.nom_parent }}
-                                    <label for="{{ form.nom_parent.id_for_label }}" class="form-label">
-                                        <i class="fas fa-signature me-2"></i>Nom parent
+                                    {{ form.nom_pere }}
+                                    <label for="{{ form.nom_pere.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Nom pére
+                                    </label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    {{ form.prenom_mere }}
+                                    <label for="{{ form.prenom_mere.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Prénom mére
+                                    </label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    {{ form.nom_mere }}
+                                    <label for="{{ form.nom_mere.id_for_label }}" class="form-label">
+                                        <i class="fas fa-signature me-2"></i>Nom mére
                                     </label>
                                 </div>
 
@@ -133,12 +145,7 @@
 </style>
 
 <script>
-    // Afficher un message de succès après l'enregistrement
-    {% if messages %}
-        {% for message in messages %}
-            showToast('{{ message }}', 'success');
-        {% endfor %}
-    {% endif %}
+
 
     function showToast(message, type) {
         const toast = document.createElement('div');

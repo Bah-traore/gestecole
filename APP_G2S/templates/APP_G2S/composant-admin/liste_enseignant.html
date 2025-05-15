@@ -1,28 +1,95 @@
 {% extends 'base_admin.html' %}
 
 {% block content %}
-<h1>Gestion des Enseignants</h1>
-<a href="{% url 'ajouter_enseignant' %}" class="btn btn-primary">Ajouter</a>
+<div class="container-fluid px-4">
+    <!-- En-tête avec menus déroulants -->
+    <div class="mb-4">
+        <h1 class="h3 mb-3 text-gray-800">📚 Gestion des Enseignants</h1>
+        <div class="d-flex align-items-center gap-4 mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span>Année Scolaire:</span>
+                <select class="form-select form-select-sm">
+                    <option>Toutes</option>
+                </select>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span>Classe:</span>
+                <select class="form-select form-select-sm">
+                    <option>Toutes</option>
+                </select>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{% url 'ajouter_enseignant' %}" class="btn btn-primary shadow-sm">
+                <i class="fas fa-plus me-2"></i>Ajouter
+            </a>
+            <a href="#" class="btn btn-danger shadow-sm">
+                <i class="fas fa-file-pdf me-2"></i>Exporter PDF
+            </a>
+        </div>
+    </div>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>Nom complet</th>
-            <th>Téléphone</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for enseignant in enseignants %}
-        <tr>
-            <td>{{ enseignant.nom_complet }}</td>
-            <td>{{ enseignant.telephone }}</td>
-            <td>
-                <a href="{% url 'modifier_enseignant' enseignant.id %}" class="btn btn-warning">Modifier</a>
-                <a href="{% url 'supprimer_enseignant' enseignant.id %}" class="btn btn-danger">Supprimer</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <!-- Section Recherche -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <h4 class="mb-3">Recherche d’enseignants</h4>
+            <form class="d-flex gap-3">
+                <input type="text" class="form-control" placeholder="Nom ou prénom">
+                <button class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>Rechercher
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau des enseignants -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Matière</th>
+                            <th>Statut</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enseignant in enseignants %}
+                        <tr>
+                            <td>{{ enseignant.nom_complet}}</td>
+                            <td>{{ enseignant.nom_complet}}</td>
+                            <td>Mathématiques</td> <!-- À remplacer par le champ réel -->
+                            <td>Actif</td> <!-- À remplacer par le champ réel -->
+                            <td class="text-end">
+                                <div class="d-flex gap-2 justify-content-end align-items-center">
+                                    <a href="#" class="text-decoration-none">
+                                        Voir détail
+                                    </a>
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'modifier_enseignant' enseignant.id %}"
+                                           class="btn btn-sm btn-outline-warning"
+                                           data-bs-toggle="tooltip"
+                                           title="Modifier">
+                                            <i class="fas fa-edit fa-sm"></i>
+                                        </a>
+                                        <a href="{% url 'supprimer_enseignant' enseignant.id %}"
+                                           class="btn btn-sm btn-outline-danger"
+                                           data-bs-toggle="tooltip"
+                                           title="Supprimer">
+                                            <i class="fas fa-trash-alt fa-sm"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

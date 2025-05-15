@@ -1,0 +1,43 @@
+
+<!-- Ajout du formulaire et correction des sélecteurs -->
+<form method="get" class="flex gap-4 mb-6 p-4 bg-gray-800 rounded-lg">
+    <!-- Filtre Année Scolaire -->
+    <div class="flex flex-col">
+        <label class="text-white mb-2">Année Scolaire:</label>
+        <select 
+            name="annee" 
+            onchange="this.form.submit()"
+            class="p-2 rounded bg-gray-700 text-white"
+        >
+            <option value="">Toutes</option>
+            {% for annee in annees %}
+                <option 
+                    value="{{ annee }}" 
+                    {% if annee == selected_annee %}selected{% endif %}
+                >
+                    {{ annee }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Filtre Classe -->
+    <div class="flex flex-col">
+        <label class="text-white mb-2">Classe:</label>
+        <select 
+            name="classe" 
+            onchange="this.form.submit()"
+            class="p-2 rounded bg-gray-700 text-white"
+        >
+            <option value="">Toutes</option>
+            {% for classe in classes_dispo %}
+                <option 
+                    value="{{ classe.id }}" 
+                    {% if classe.id|stringformat:"s" == selected_classe|stringformat:"s" %}selected{% endif %}
+                >
+                    {{ classe.niveau }} {{ classe.section }} annee
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+</form>

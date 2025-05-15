@@ -1,42 +1,78 @@
 {% extends 'base_admin.html' %}
 
-
 {% block content %}
 <div class="bg-white shadow-md rounded-lg p-6">
-    <div class="sm:flex sm:items-center">
-        <div class="sm:flex-auto">
-            <h1 class="text-2xl font-bold mb-4">Liste des Bulletins</h1>
-            <a href="{% url 'dashboard_eleve' %}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm hover:bg-yellow-600 transition duration-200 mb-4 px-[2px] rounded-lg">
-                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Retour
+    <h1 class="text-center text-2xl font-semibold text-gray-800 mb-6">
+        Données pour la période : {{ active_period.numero }} ({{ active_period.annee_scolaire }})
+    </h1>
+    {% include "filtrePeriodeClasse/filtrerPeriodeClasse.html" %}
+        {% if Noperiode is None %}
+
+    {% include 'error_flotant/erreur_periode.html' %}
+
+       {% endif %}
+
+    <form id="export-form" method="POST" action="{% url 'generate_bulletins' %}">
+        {% csrf_token %}
+        <input type="hidden" name="classe_id" value="{{ selected_classe }}">
+        <input type="hidden" name="eleve_ids" id="hidden-eleve-ids">
+        
+<!--        <button type="button" onclick="prepareExport()" -->
+<!--                class="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition shadow-sm mb-4">-->
+<!--            Exporter les bulletins sélectionnés (PDF)-->
+<!--        </button>-->
+    </form>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-gray-700">Liste des Bulletins</h2>
+        <div class="flex space-x-4 mt-4 sm:mt-0">
+            <a href="{% url 'dashboard_eleve' %}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg shadow hover:bg-gray-700 transition">
+                <i class="fas fa-arrow-left fa-sm mr-2"></i> Retour
             </a>
-        </div>
-        <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-            <a href="{% url 'ajouter_bulletin' %}" class="btn btn-primary">
+            <a href="{% url 'ajouter_bulletin' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition">
                 Ajouter des Bulletins
             </a>
         </div>
-
     </div>
+
     <div class="overflow-x-auto">
-        <table class="min-w-full bg-white border border-gray-200">
-            <thead>
+        <table class="min-w-full bg-white border border-gray-200 rounded-lg shadow">
+            <thead class="bg-gray-100">
                 <tr>
-                    <th class="py-2 px-4 border-b">Élève</th>
-                    <th class="py-2 px-4 border-b">Moyenne Générale</th>
-                    <th class="py-2 px-4 border-b">Appréciation</th>
-                    <th class="py-2 px-4 border-b">Date de Création</th>
-                    <th class="py-2 px-4 border-b">Actions</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b"></th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b">Élève</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b">Moyenne Générale</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b">Appréciation</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b">Date de Création</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 border-b">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for bulletin in bulletins %}
+                <tr class="hover:bg-gray-50 eleve-item">
+                    <td class="py-3 px-4 text-center border-b">
+                        <input type="checkbox" 
+                               class="eleve-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                               data-id="{{ bulletin.eleve.id }}">
+                    </td>
+                    <td class="py-3 px-4 text-gray-700 border-b">{{ bulletin.eleve }}</td>
+                    <td class="py-3 px-4 text-gray-700 border-b">{{ bulletin.moyenne_generale }}</td>
+                    <td class="py-3 px-4 text-gray-700 border-b">{{ bulletin.appreciation|default:"Aucune" }}</td>
+                    <td class="py-3 px-4 text-gray-700 border-b">{{ bulletin.date_creation }}</td>
+                    <td class="py-3 px-4 text-gray-700 border-b">
+                        <a href="{% url 'detail_bulletin' bulletin.id %}" class="text-blue-500 hover:text-blue-700 font-medium mr-2">
+                            Détails
+                        </a>
+                        <a href="{% url 'pdf_bulletins' %}?bulletin_id={{ bulletin.id }}" 
+                           class="text-green-500 hover:text-green-700 font-medium">
+                            PDF
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
                 <tr>
-                    <td class="py-2 px-4 border-b">{{ bulletin.eleve }}</td>
-                    <td class="py-2 px-4 border-b">{{ bulletin.moyenne_generale }}</td>
-                    <td class="py-2 px-4 border-b">{{ bulletin.appreciation|default:"Aucune" }}</td>
-                    <td class="py-2 px-4 border-b">{{ bulletin.date_creation }}</td>
-                    <td class="py-2 px-4 border-b">
-                        <a href="{% url 'detail_bulletin' bulletin.id %}" class="text-blue-500 hover:text-blue-700">Détails</a>
+                    <td colspan="6" class="py-4 px-4 text-center text-gray-500">
+                        Aucun bulletin disponible pour cette période.
                     </td>
                 </tr>
                 {% endfor %}
@@ -44,4 +80,39 @@
         </table>
     </div>
 </div>
+
+<script>
+    let selectedeleves = new Set();
+
+    function setupCheckboxHandlers() {
+        document.querySelectorAll(".eleve-checkbox").forEach(checkbox => {
+            checkbox.addEventListener("change", function() {
+                const id = this.dataset.id;
+                const item = this.closest('.eleve-item');
+                
+                if (this.checked) {
+                    selectedeleves.add(id);
+                    item.classList.add('bg-blue-100');
+                } else {
+                    selectedeleves.delete(id);
+                    item.classList.remove('bg-blue-100');
+                }
+            });
+        });
+    }
+
+    function prepareExport() {
+        if (selectedeleves.size === 0) {
+            alert("Veuillez sélectionner au moins un élève !");
+            return;
+        }
+        
+        document.getElementById('hidden-eleve-ids').value = Array.from(selectedeleves).join(',');
+        document.getElementById('export-form').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setupCheckboxHandlers();
+    });
+</script>
 {% endblock %}

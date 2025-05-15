@@ -97,7 +97,7 @@
             });
         }
 
-        // Gestion des clics pour détails
+        // Gestion des clics pour afficher le bulletin
         function setupDetailsHandlers() {
             document.querySelectorAll(".clickable-details").forEach(div => {
                 div.addEventListener("click", async function() {

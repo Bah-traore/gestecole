@@ -1,0 +1,122 @@
+{% extends 'base_admin.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Gestion des Périodes de Paiement</h2>
+    
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white shadow">
+                <div class="card-body">
+                    <h5>Périodes Actives</h5>
+                    <h2>{{ stats.actives }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white shadow">
+                <div class="card-body">
+                    <h5>Montant Moyen</h5>
+                    <h2>{{ stats.montant_moyen|intcomma }} FCFA</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white shadow">
+                <div class="card-body">
+                    <h5>Total Périodes</h5>
+                    <h2>{{ stats.total }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des périodes -->
+    <div class="card shadow">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Liste des Périodes</h4>
+            <a href="{% url 'creer_periode_paiement' %}" class="btn btn-success">
+                <i class="fas fa-plus-circle"></i> Nouvelle Période
+            </a>
+        </div>
+        
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Nom</th>
+                            <th>Dates</th>
+                            <th>Montant</th>
+                            <th>Classes</th>
+                            <th>Examen Associé</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for periode in periodes %}
+                        <tr>
+                            <td>{{ periode.nom }}</td>
+                            <td>{{ periode.date_debut|date:"d/m/Y" }} - {{ periode.date_fin|date:"d/m/Y" }}</td>
+                            <td>{{ periode.montant_total|intcomma }} FCFA</td>
+                            <td>
+                                {% for classe in periode.classe.all %}
+                                <span class="badge badge-secondary">{{ classe.nom }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ periode.examen.nom|default:"-" }}</td>
+                            <td>
+                                <a href="#}"
+                                   class="btn btn-sm btn-warning" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-sm btn-danger" 
+                                        data-toggle="modal" 
+                                        data-target="#deleteModal{{ periode.id }}"
+                                        title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        
+                        <!-- Modal de suppression -->
+                        <div class="modal fade" id="deleteModal{{ periode.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title">Confirmer la suppression</h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span>&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Êtes-vous sûr de vouloir supprimer "{{ periode.nom }}" ?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form method="post" action="{% url 'supprimer_periode' periode.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger">
+                                                Confirmer
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                                            Annuler
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">Aucune période enregistrée</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

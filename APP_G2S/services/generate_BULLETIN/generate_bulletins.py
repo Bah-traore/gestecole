@@ -11,15 +11,20 @@ from gestecole.utils.decorateurs import administrateur_required
 
 
 @administrateur_required
-@csrf_exempt
+
 @transaction.atomic
 def generate_bulletins(request):
-    if request.method != 'POST':
+    if request.method not in ['POST', 'GET']:  # Accepter GET et POST
         return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
 
     try:
-        data = json.loads(request.body)
-        eleve_ids = data.get('eleve_ids', [])
+        # Récupération des paramètres selon la méthode
+        if request.method == 'POST':
+            data = json.loads(request.body)
+        else:  # GET
+            data = request.GET.dict()
+
+        eleve_ids = data.get('eleve_ids', '') if 'eleve_ids' in data else []
         classe_id = data.get('classe_id')
 
         if not eleve_ids or not classe_id:

@@ -1,0 +1,48 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+
+
+{% block content %}
+
+
+<div class="max-w-2xl flex flex-col mx-auto mt-8 bg-white shadow-lg rounded-lg p-6">
+    
+    <div class="grid grid-cols-3 gap-4 justify-items-center">
+        <a href="{% url 'caisse_dashboard' %}" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+                <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">Caisse</span>
+        </a>
+
+
+         <a href="{% url 'creer_periode_paiement' %}" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+                <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">periode de paiement</span>
+        </a>
+
+
+         <a href="{% url 'gestion_paiements' %}" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+                <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">liste de paiement</span>
+        </a>
+
+         <a href="" class="flex flex-col items-center">
+
+            <div class="w-16 h-16 rounded-full border border-gray-300 my-2 flex items-center justify-center hover:bg-gray-50 hover:text-gray-900">
+                <i class="fa-solid fa-graduation-cap text-gray-700 text-3xl"></i>
+            </div>
+            <span class="text-gray-700">Historique de paiement</span>
+        </a>
+    </div>
+</div>
+
+
+{% endblock %}

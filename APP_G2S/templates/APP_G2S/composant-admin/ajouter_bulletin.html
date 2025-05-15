@@ -3,7 +3,7 @@
 {% load perso_filtre %}
 {% if messages %}
 <div class="mb-4">
-
+    
     
     {% for field in form %}
         {% for error in field.errors %}
@@ -16,7 +16,7 @@
         <div class="p-4 w-[500px] mx-auto text-white text-center rounded bg-red-500">
             {{ error }}
         </div>
-    {% endfor %}
+        {% endfor %}
 </div>
 {% endif %}
 
@@ -25,6 +25,7 @@
         ❌ Aucune période scolaire active n'est configurée. Contactez l'administrateur.
     </div>
 {% endif %}
+<h1 class="text-center">Données pour la période : {{ active_period.numero }} ({{ active_period.annee_scolaire }})</h1>
 
 {% if periode_active %}
 <div class="flex flex-col md:flex-row gap-6 p-4">
@@ -38,7 +39,7 @@
                     {% csrf_token %}
                     {{ form.classes }}
                     {% if form.classe.errors %}
-                        <p class="text-red-500 text-xs italic">{{ form.classe.errors.0 }}</p>
+                    <p class="text-red-500 text-xs italic">{{ form.classe.errors.0 }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -164,6 +165,13 @@
             {% csrf_token %}
             Sauvegarder le bulletin
             </button>
+
+<!--{% comment %} -->
+
+<!--            <a href="{% url 'generate_bulletins' %}?classe_id={{ selected_classe }}&eleve_ids={% for b in bulletins %}{{ b.eleve.id }}{% if not forloop.last %},{% endif %}{% endfor %}" -->
+<!--                class="inline-flex items-center px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition shadow-sm">-->
+<!--                    generer bulletin-->
+<!--                </a> {% endcomment %}-->
         </div>
     </form>
 

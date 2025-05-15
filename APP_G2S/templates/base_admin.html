@@ -22,24 +22,24 @@
             --success-soft: #d1e7dd;
             --danger-soft: #f8d7da;
         }
-        
+
         .bg-primary-soft { background-color: var(--primary-soft); }
         .bg-success-soft { background-color: var(--success-soft); }
         .bg-danger-soft { background-color: var(--danger-soft); }
-        
+
         .table-hover tbody tr:hover {
             background-color: #f8f9fa;
             transform: scale(1.005);
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             transition: all 0.2s ease;
         }
-        
+
         .btn-primary {
             background-image: linear-gradient(to right, #0061ff, #60efff);
             border: none;
             transition: all 0.3s ease;
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-1px);
             box-shadow: 0 5px 15px rgba(0,97,255,0.3);
@@ -48,16 +48,16 @@
         .table-responsive {
             min-height: 400px;
         }
-        
+
         .cours-row td {
             vertical-align: middle;
             transition: all 0.3s ease;
         }
-        
+
         .cours-row:hover td:not(:first-child) {
             transform: translateX(5px);
         }
-        
+
     </style>
 </head>
 <body class="bg-gray-100">
@@ -143,19 +143,25 @@
                 <nav class="px-2 py-4">
                     <a href="{% url 'dashboard_eleve' %}"
                        class="group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        {% if user.role == 'DIRECTEUR' or user.role == 'CENSEUR' or user.role == 'SURVEILLANT' or user.role == 'COMPTABLE' %}
                         <i class="fas fa-book mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        {% endif %}
                         gestion des élèves
                     </a>
 
 
-                    <a href="{% url 'gestion_paiements' %}"
+                    <a href="{% url 'dashboard_paiements' %}"
                        class="mt-1 group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        {% if user.role == 'DIRECTEUR' or user.role == 'COMPTABLE' %}
                         <i class="fa-regular fa-circle-xmark mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        {% endif %}
                         Comptable
                     </a>
                     <a href="{% url 'gestion_periodes' %}"
                        class="mt-1 group flex items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900">
+                        {% if user.role == 'DIRECTEUR' %}
                         <i class="fa-regular fa-circle-xmark mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        {% endif %}
                         periode
                     </a>
                 </nav>
@@ -172,9 +178,12 @@
 
 
     <main class="md:pl-64 pt-16 h-screen overflow-y-auto">
+        <!-- Include messages template -->
+        {% include 'includes/messages.html' %}
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {% block content %}
-            
+
             {% endblock %}
         </div>
     </main>
@@ -207,5 +216,3 @@
     });
     </script>
     <!-- Avant la fermeture du body -->
-
-

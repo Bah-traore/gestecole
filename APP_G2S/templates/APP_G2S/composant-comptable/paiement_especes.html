@@ -1,0 +1,204 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+{% block content %}
+
+<div class="container-fluid py-4">
+    <!-- En-tête -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 bg-white shadow-sm rounded p-3">
+        <h2 class="h4 mb-0 text-primary">
+            <i class="fas fa-cash-register me-2"></i>
+            Caisse Électronique - Paiement en Espèces
+        </h2>
+        <div class="w-50 position-relative mt-2 mt-md-0">
+            <input type="text"
+                   id="search-input"
+                   hx-get="{% url 'recherche_eleves' %}"
+                   hx-trigger="keyup changed delay:250ms"
+                   hx-target="#search-results"
+                   class="form-control form-control-lg shadow-none border border-primary"
+                   placeholder="Rechercher un élève...">
+            <div id="search-results" class="position-absolute w-100 bg-white border border-top-0 z-1000"></div>
+        </div>
+    </div>
+
+    <!-- Contenu Principal -->
+    <div class="row g-4">
+        <!-- Formulaire de paiement -->
+        <div class="col-md-5">
+            <div class="card border-success shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i>Nouvelle Transaction</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="payment-form" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Sélection élève -->
+                        <div class="mb-3">
+                            <label for="{{ form.eleve.id_for_label }}" class="form-label">Élève</label>
+                            {{ form.eleve }}
+                            <div class="invalid-feedback">Veuillez sélectionner un élève.</div>
+                        </div>
+
+                        <!-- Informations financières -->
+                        <div class="alert alert-light border border-info mb-3">
+                            <div class="row">
+                                <div class="col-6">
+                                    <small>Solde dû:</small>
+                                    <p class="fw-bold fs-5 mb-0">{{ eleve.solde_restant|default:"0" }} FCFA</p>
+                                </div>
+                                <div class="col-6">
+                                    <small>Dernier paiement:</small>
+                                    <p class="fw-bold fs-5 mb-0">{{ eleve.dernier_paiement|date:"d/m/Y"|default:"-" }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Période -->
+                        <div class="mb-3">
+                            <label for="{{ form.periode.id_for_label }}" class="form-label">Période scolaire</label>
+                            {{ form.periode }}
+                        </div>
+
+                        <!-- Montant -->
+                        <div class="mb-3">
+                            <label for="{{ form.montant_paye.id_for_label }}" class="form-label">Montant perçu</label>
+                            <div class="input-group has-validation">
+                                <span class="input-group-text">FCFA</span>
+                                {{ form.montant_paye }}
+                                <div class="invalid-feedback">Montant invalide ou supérieur au solde.</div>
+                            </div>
+                        </div>
+
+                        <!-- Bouton -->
+                        <button type="submit" class="btn btn-success w-100 btn-lg mt-3">
+                            <i class="fas fa-check-circle me-2"></i>Enregistrer & Imprimer
+                        </button>
+
+                        <div class="mt-3 text-center small text-muted">
+                            Transaction #{{ last_transaction_id|add:1 }} |
+                            Caisse: {{ request.user.get_full_name }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique et synthèse -->
+        <div class="col-md-7">
+            <!-- Dernières transactions -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Historique des Transactions (24h)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for p in recent_payments %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>#{{ p.id }} - {{ p.periode.nom }}</strong><br>
+                                    <small class="text-muted">{{ p.date_paiement|date:"d/m/Y H:i" }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success">{{ p.montant_paye }} FCFA</span><br>
+                                    <small>{{ p.mode_paiement }}</small>
+                                </div>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-center text-muted">Aucune transaction récente</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Synthèse Journalière</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h3 class="text-success">{{ daily_total|default:"0" }}</h3>
+                            <small>Total encaissé</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="text-primary">{{ transaction_count }}</h3>
+                            <small>Transactions</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="text-danger">{{ cancellation_count }}</h3>
+                            <small>Annulations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal PDF -->
+<div class="modal fade" id="receiptModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reçu de paiement #<span id="receiptNumber"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <iframe id="pdfViewer" style="width:100%; height:600px; border:none;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .z-1000 { z-index: 1000; }
+    .form-select:focus,
+    .form-control:focus {
+        box-shadow: none;
+        border-color: #0d6efd;
+    }
+
+    .list-group-item:hover {
+        background-color: #f1f1f1;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        transition: all 0.2s ease-in-out;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Affichage automatique du reçu si généré
+    {% if generated_pdf %}
+    document.getElementById('pdfViewer').src = "{% url 'generer_recu_paiement' last_payment_id %}";
+    new bootstrap.Modal(document.getElementById('receiptModal')).show();
+    {% endif %}
+
+    // Validation du formulaire
+    document.getElementById('payment-form').addEventListener('submit', function (e) {
+        let isValid = true;
+        const eleveSelect = document.getElementById('id_eleve');
+        const montantInput = document.getElementById('id_montant_paye');
+
+        if (!eleveSelect.value) {
+            eleveSelect.classList.add('is-invalid');
+            isValid = false;
+        }
+
+        if (parseFloat(montantInput.value) > parseFloat("{{ eleve.solde_restant }}")) {
+            montantInput.classList.add('is-invalid');
+            isValid = false;
+        }
+
+        if (!isValid) e.preventDefault();
+    });
+});
+</script>
+
+{% endblock %}

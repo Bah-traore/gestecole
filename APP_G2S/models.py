@@ -4,6 +4,8 @@ import secrets
 import string
 from collections import defaultdict
 from datetime import timedelta
+from decimal import Decimal
+
 import pyotp
 from celery import shared_task
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -12,6 +14,7 @@ from django.contrib.auth.models import AbstractUser, PermissionsMixin
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models.aggregates import Sum, Avg
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -23,23 +26,49 @@ from gestecole.utils.calculatrice_bulletin import calculer_moyenne_generale
 from gestecole.utils.idgenerateurs import IDGenerator
 from gestecole.utils.validators import validate_file_upload
 
+
 logger = logging.getLogger(__name__)
 
-#
-# class Tenant(models.Model):
-#     nom = models.CharField(max_length=100, unique=True)
-#     subdomain = models.CharField(max_length=50, unique=True)
-#     logo = models.ImageField(upload_to='tenants/logo/', null=True, blank=True)
-#     config = models.JSONField(default=dict)  # Stocke les paramètres spécifiques
-#     is_active = models.BooleanField(default=True)
-#     date_creation = models.DateTimeField(auto_now_add=True)
-#
-#     def __str__(self):
-#         return self.nom
+class TenantQuerySet(models.QuerySet):
+    def for_tenant(self, tenant):
+        return self.filter(tenant=tenant)
+
+class TenantManager(models.Manager):
+    def get_queryset(self):
+        # On suppose que le tenant courant est injecté dans le thread local (middleware)
+        from gestecole.utils.tenant import get_current_tenant
+        tenant = get_current_tenant()
+        qs = super().get_queryset()
+        if tenant:
+            return qs.filter(tenant=tenant)
+        return qs
+
+class Tenant(models.Model):
+    nom = models.CharField(max_length=100, unique=True)
+    subdomain = models.CharField(max_length=50, unique=True)
+    logo = models.ImageField(upload_to='tenants/logo/', null=True, blank=True)
+    config = models.JSONField(default=dict)  # Stocke les paramètres spécifiques
+    is_active = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    # Paramètres spécifiques à l'école
+    adresse = models.CharField(max_length=255, blank=True)
+    telephone = PhoneNumberField(region='ML', null=True, blank=True)
+    email = models.EmailField(blank=True)
+    site_web = models.URLField(blank=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'École'
+        verbose_name_plural = 'Écoles'
+
+    def __str__(self):
+        return self.nom
 
 
 
 class Enseignant(AbstractUser):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='enseignants')
     identifiant = models.CharField(max_length=30, unique=True)
     telephone = PhoneNumberField(region='ML', unique=True)
     nom_complet = models.CharField(max_length=100)
@@ -64,6 +93,8 @@ class Enseignant(AbstractUser):
     groups = None
     user_permissions = None
 
+    objects = TenantManager()
+
     class Meta:
         verbose_name = 'Enseignant'
         verbose_name_plural = 'Enseignants'
@@ -74,22 +105,41 @@ class Enseignant(AbstractUser):
 
 
 class Matiere(models.Model):
-    nom = models.CharField(max_length=100, unique=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='matieres')
+    nom = models.CharField(max_length=100)
     coefficient = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+
+    objects = TenantManager()
+
+    class Meta:
+        unique_together = ('tenant', 'nom')
 
 
     def __str__(self):
         return self.nom
 
-class Classe(models.Model):
-    niveau = models.PositiveIntegerField()
-    section = models.CharField(max_length=20, choices=[('A', 'Section A'),
-        ('B', 'Section B'),
-        ('C', 'Section C'),
-        ], default='A')
-    matieres = models.ManyToManyField(Matiere, verbose_name='Matiere')
 
+
+class Classe(models.Model):
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='classes')
+    niveau = models.PositiveIntegerField()
     responsable = models.ForeignKey('Enseignant', on_delete=models.CASCADE, null=True, blank=True)
+    section = models.CharField(max_length=1, choices=[('A','A'), ('B','B'), ('C','C')])
+    niveau_superieur = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
+    matieres = models.ManyToManyField('Matiere')
+
+    objects = TenantManager()
+
+    class Meta:
+        unique_together = ('tenant', 'niveau', 'section')
+
+    def clean(self):
+        if self.niveau_superieur:
+            if self.niveau_superieur.niveau <= self.niveau:
+                raise ValidationError("Le niveau supérieur doit être plus élevé")
+            if self.niveau_superieur.section != self.section:
+                raise ValidationError("La section doit rester identique")
+
 
     def __str__(self):
         return f"{self.niveau} - {self.section}"
@@ -114,7 +164,7 @@ class PeriodeManager(models.Manager):
         return self.filter(is_active=True)
 
 class Periode(models.Model):
-
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='periodes')
     numero = models.PositiveSmallIntegerField()
     annee_scolaire = models.CharField(max_length=22)
     classe = models.ManyToManyField(Classe, verbose_name='Classe')
@@ -122,7 +172,15 @@ class Periode(models.Model):
     date_fin = models.DateField()
     is_active = models.BooleanField("Période active", default=False)
     cloture = models.BooleanField(default=False)
-    objects = PeriodeManager()
+
+    objects = TenantManager()
+
+    @classmethod
+    def periode_active(cls):
+        return cls.objects.filter(cloture=False).latest('date_fin')
+
+    def __str__(self):
+        return f"{self.annee_scolaire} ({'Clôturée' if self.cloture else 'Active'})"
 
     class Meta:
         constraints = [
@@ -136,20 +194,27 @@ class Periode(models.Model):
             )
         ]
 
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
 
         # Vérification des chevauchements de dates
-        conflits = Periode.objects.filter(
-            classe=self.classe,
-            annee_scolaire=self.annee_scolaire,
-            date_debut__lt=self.date_fin,
-            date_fin__gt=self.date_debut
-        ).exclude(pk=self.pk)
+        # On ne peut pas accéder à self.classe avant que l'objet soit sauvegardé
+        # car c'est une relation ManyToMany
+        if self.pk:  # Seulement si l'objet a déjà été sauvegardé
+            conflits = Periode.objects.filter(
+                classe__in=self.classe.all(),
+                annee_scolaire=self.annee_scolaire,
+                date_debut__lt=self.date_fin,
+                date_fin__gt=self.date_debut
+            ).exclude(pk=self.pk)
 
-        if conflits.exists():
-            raise ValidationError(
-                "Une période existe déjà pour cette classe et cette année scolaire avec des dates qui se chevauchent")
+            if conflits.exists():
+                raise ValidationError(
+                    "Une période existe déjà pour cette classe et cette année scolaire avec des dates qui se chevauchent")
 
     def notes_valides(self):
         return self.note_set.filter(est_valide=True)
@@ -158,11 +223,14 @@ class Periode(models.Model):
         return f"{self.numero} ({self.annee_scolaire})"
 
 class Eleve(AbstractUser):
-    identifiant = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='eleves')
+    identifiant = models.CharField(max_length=20, null=True, blank=True)
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
-    prenom_parent = models.CharField(max_length=100)
-    nom_parent = models.CharField(max_length=100)
+    prenom_pere = models.CharField(max_length=100)
+    nom_pere = models.CharField(max_length=100)
+    nom_mere = models.CharField(max_length=100)
+    prenom_mere = models.CharField(max_length=100)
     telephone = PhoneNumberField(db_index=True, region='ML')
     profile_picture = models.ImageField(upload_to='eleves/',
                                         default='default_profile.jpg',
@@ -186,51 +254,9 @@ class Eleve(AbstractUser):
     is_staff = models.BooleanField(default=False, editable=False)
     is_active = models.BooleanField(default=True, editable=False)
     suspendu = models.BooleanField(default=False, verbose_name="Suspendu pour impayés")
-
-    def envoyer_sms_parent(self, message, force=False):
-        """
-        Envoie un SMS au parent/tuteur de l'élève
-        Args:
-            message (str): Le contenu du message (max 160 caractères)
-            force (bool): Envoyer même si l'élève est suspendu ou désactivé
-        Returns:
-            bool: True si réussi, False si échec
-        """
-        if not self.is_active and not force:
-            return False
-
-        from gestecole.utils.idgenerateurs import SMSService  # Import local pour éviter les imports circulaires
-        from django.conf import settings
-
-        # Validation du numéro
-        if not self.telephone:
-            logger.error(f"Aucun numéro pour l'élève {self.get_full_name()}")
-            return False
-
-        # Formatage du message
-        message = f"[ECOLE {settings.ECOLE_NOM}] {message.strip()}"
-        if len(message) > 160:
-            message = message[:157] + "..."  # Tronquer tout en gardant le sens
-
-        try:
-            # Envoi via le service SMS
-            success = SMSService.send_sms(
-                numero=str(self.telephone),
-                message=message,
-                sender_id=settings.SMS_SENDER_ID
-            )
-
-            # Journalisation
-            if success:
-                logger.info(f"SMS envoyé à {self.telephone} pour {self.get_full_name()}")
-            else:
-                logger.warning(f"Échec envoi SMS à {self.telephone}")
-
-            return success
-
-        except Exception as e:
-            logger.error(f"Erreur envoi SMS pour {self.id}: {str(e)}")
-            return False
+    redoublements = models.PositiveIntegerField(default=0)
+    est_expulse = models.BooleanField(default=False)
+    historique = models.ManyToManyField(Periode, through='HistoriqueAcademique')
 
 
     groups = models.ManyToManyField(
@@ -249,6 +275,8 @@ class Eleve(AbstractUser):
         editable=False
     )
 
+    objects = TenantManager()
+
     def generate_password(self):
         characters = string.digits  # Mot de passe numérique uniquement
         return ''.join(random.choice(characters) for _ in range(6))
@@ -256,6 +284,8 @@ class Eleve(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.identifiant:
             self.identifiant = IDGenerator.generate_student_id(self.classe)
+            print('SUCCESS: IDENTIFIANT ELEVE: ', self.identifiant)
+
         if not self.password or self.password.startswith('pbkdf2_sha256') is False:
             temp_password = self.generate_password()
             self.set_password(temp_password)
@@ -273,12 +303,98 @@ class Eleve(AbstractUser):
         permissions = [
             ('view_own_data', 'Peut voir ses propres données'),
         ]
+        unique_together = ('tenant', 'identifiant')
 
 
     objects = EleveManager()
 
+    def generer_decision_academique(self):
+        bulletins = self.bulletins.filter(periode=Periode.objects.active().first())
+        moyenne = bulletins.aggregate(Avg('moyenne_generale'))['moyenne_generale__avg']
+
+        if self.verifier_conditions_promotion():
+            if self.classe.niveau_superieur:
+                self.classe = self.classe.niveau_superieur
+                self.redoublements = 0
+                decision = 'ADMIS'
+            else:
+                decision = 'TERMINE'
+        else:
+            self.redoublements += 1
+            decision = 'REDOUBLE' if self.redoublements < 2 else 'EXPULSE'
+
+        HistoriqueAcademique.objects.create(
+            eleve=self,
+            periode=Periode.objects.active().first(),
+            moyenne=moyenne,
+            decision=decision,
+            paiement_complet=self.paiements.filter(statut_paiement='REUSSI').exists()
+        )
+
+    def verifier_conditions_promotion(self):
+        """Vérifie automatiquement les conditions de promotion"""
+        # Vérifier les 3 moyennes générales
+        bulletins = BulletinPerformance.objects.filter(eleve=self)
+        if bulletins.count() < 3:
+            return False
+
+        moyennes_valides = all(b.moyenne_generale >= 30 for b in bulletins)
+
+        # Vérifier paiement première tranche
+        paiement_ok = Paiement.objects.filter(
+            eleve=self,
+            tranche__ordre=1,
+            statut_paiement='REUSSI'
+        ).exists()
+
+        return moyennes_valides and paiement_ok and not self.suspendu
+
+    def mettre_a_jour_statut(self):
+        """Met à jour automatiquement le statut académique"""
+        if self.verifier_conditions_promotion():
+            if self.classe.niveau_superieur:
+                self.classe = self.classe.niveau_superieur
+                self.redoublements = 0
+                decision = 'ADMIS'
+            else:
+                decision = 'TERMINE'  # Si dernière classe
+        else:
+            self.redoublements += 1
+            if self.redoublements >= 2:
+                self.est_expulse = True
+                decision = 'EXPULSE'
+            else:
+                decision = 'REDOUBLE'
+
+        # Historique automatique
+        HistoriqueAcademique.objects.create(
+            eleve=self,
+            periode=Periode.objects.active().first(),
+            moyenne=BulletinPerformance.aggregate(Avg('moyenne_generale'))['moyenne_generale__avg'], # bulletins
+            decision=decision,
+            paiement_complet=self.paiements.filter(statut_paiement='REUSSI').exists()
+        )
+
+        self.save()
+
     def __str__(self):
         return str(self.prenom) + '-' + str(self.nom)
+
+class HistoriqueAcademique(models.Model):
+    DECISIONS = (
+        ('ADMIS', 'Admis'),
+        ('REDOUBLE', 'Redouble'),
+        ('EXPULSE', 'Expulsé')
+    )
+
+    eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE)
+    periode = models.ForeignKey(Periode, on_delete=models.CASCADE)
+    moyenne = models.FloatField()
+    decision = models.CharField(max_length=10, choices=DECISIONS)
+    paiement_complet = models.BooleanField()
+
+    class Meta:
+        unique_together = ('eleve', 'periode')
 
 class EmploiDuTemps(models.Model):
     RECURRENCE_CHOICES = [
@@ -357,7 +473,7 @@ class Examen(models.Model):
         # Validation 2 : Cohérence date début/fin
         if self.date_fin < self.date:
             raise ValidationError("La date de fin doit être postérieure à la date de début.")
-        if self.date_fin >= timezone.now():
+        if timezone.now().date() > self.date_fin:
             self.validite = "FIN"
             raise ValidationError(f"{self.nom} - du {self.date} au {self.date_fin} à eteint sa date de fin")
     def save(self, *args, **kwargs):
@@ -515,14 +631,15 @@ class Administrateur(AbstractUser):
 
     ]
 
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, null=True, related_name='administrateurs')
     role = models.CharField(max_length=20, choices=CHOICE_ROLE)
 
-    telephone = PhoneNumberField(unique=True, null=True, region='ML')
-    email = models.EmailField(max_length=255, unique=True)
+    telephone = PhoneNumberField(null=True, region='ML')
+    email = models.EmailField(max_length=255)
     identifiant = models.CharField(max_length=20, unique=True, null=True)
     prenom = models.CharField(max_length=20)
     nom = models.CharField(max_length=20)
-    username = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Nom d'utilisateur", editable=False)
+    username = models.CharField(max_length=20, unique=False, null=True, blank=True, verbose_name="Nom d'utilisateur", editable=False)
     last_login = models.DateTimeField(auto_now_add=True, auto_created=True, blank=True, editable=False)
     date_joined = models.DateTimeField(auto_now_add=True, auto_created=True, blank=True, editable=False)
     first_name = models.CharField(max_length=20, editable=False)
@@ -539,7 +656,7 @@ class Administrateur(AbstractUser):
     is_admin = models.BooleanField(default=True, verbose_name="Compte admin")
 
     USERNAME_FIELD = 'identifiant'
-    REQUIRED_FIELDS = ['nom', 'prenom', 'telephone']
+    REQUIRED_FIELDS = ['nom', 'prenom', 'telephone', 'username']
 
     class Meta:
         verbose_name = 'Administrateur'
@@ -550,6 +667,11 @@ class Administrateur(AbstractUser):
             ('manage_pedagogy', 'Gère la pédagogie'),
             ('validate_absences', 'Valider les absences'),
             # Ajouter toutes les permissions de HIERARCHY
+        ]
+        unique_together = [
+            ('tenant', 'identifiant'),
+            ('tenant', 'telephone'),
+            ('tenant', 'email')
         ]
 
     groups = models.ManyToManyField(
@@ -579,35 +701,6 @@ class Administrateur(AbstractUser):
         # print(self.password, type(self.password))
         self.password = make_password(raw_password)
         # print(self.password, type(self.password))
-
-
-    # def ajouter_enseignant(self, enseignant):
-    #
-    #     """Ajoute un agent au super agent."""
-    #
-    #     self.enseignant_creer.add(enseignant)    #
-    # #
-    # #
-    # # def desactiver_agent(self, agent):
-    # #
-    # #     """Désactive un agent."""
-    # #
-    # #     agent.is_active = False
-    # #
-    # #     agent.save()
-    # #
-    # #
-    # #
-    # # def activer_agent(self, agent):
-    # #
-    # #     """Active un agent."""
-    # #
-    # #     agent.is_active = True
-    # #
-    # #     agent.save()
-
-
-
 
 
 @receiver(pre_save, sender=EmploiDuTemps)
@@ -642,16 +735,16 @@ class BulletinPerformance(models.Model):
     appreciation = models.TextField(blank=True, null=True)
     classement = models.PositiveIntegerField(blank=True, null=True)
 
-    def calculer_moyenne_generale(self):
-        bulletin_matieres = self.matieres.all()
-
-        moyennes_coefficient = defaultdict(float)
-        for bm in bulletin_matieres:
-            moyennes_coefficient[bm.matiere.id] += bm.note * bm.matiere.coefficient
-
-        print('moyenne_coeff', dict(moyennes_coefficient))
-        matieres_classe = Matiere.objects.filter(classe=self.eleve.classe)
-        self.moyenne_generale = calculer_moyenne_generale(moyennes_coefficient, matieres_classe)
+    # def calculer_moyenne_generale(self):
+    #     bulletin_matieres = self.classes.all()
+    #
+    #     moyennes_coefficient = defaultdict(float)
+    #     for bm in bulletin_matieres:
+    #         moyennes_coefficient[bm.matiere.id] += bm.note * bm.matiere.coefficient
+    #
+    #     print('moyenne_coeff', dict(moyennes_coefficient))
+    #     matieres_classe = Matiere.objects.filter(classe=self.eleve.classe)
+    #     self.moyenne_generale = calculer_moyenne_generale(moyennes_coefficient, matieres_classe)
 
     # def save(self, *args, **kwargs):
     #     # Calculer la moyenne avant la sauvegarde
@@ -685,7 +778,7 @@ class BulletinPerformance(models.Model):
             super().save(*args, **kwargs)
 
         # Calculer la moyenne générale
-        self.calculer_moyenne_generale()
+        # self.calculer_moyenne_generale()
 
         # Mise à jour du classement
         bulletins = BulletinPerformance.objects.filter(
@@ -741,13 +834,144 @@ class BulletinMatiere(models.Model):
 
 
 
+
+class TranchePaiement(models.Model):
+    STATUT_CHOICES = [
+        ('NON_ECHEU', 'Non échue'),
+        ('ECHEU', 'Échue'),
+        ('PAYE', 'Payée'),
+        ('PARTIEL', 'Partiellement payé'),
+    ]
+
+    periode = models.ForeignKey('PeriodePaiement', on_delete=models.CASCADE)
+    date_echeance = models.DateField()
+    montant = models.DecimalField(max_digits=10, decimal_places=2)
+    ordre = models.PositiveIntegerField()
+    statut = models.CharField(max_length=10, choices=STATUT_CHOICES, default='NON_ECHEU')
+
+
+    class Meta:
+        ordering = ['ordre']
+
+    def __str__(self):
+        return f"Tranche {self.ordre} - {self.montant}€"
+
 class PeriodePaiement(models.Model):
-    examen = models.ForeignKey(Examen, on_delete=models.CASCADE)
+    MODE_PAIEMENT_CHOICES = [
+        ('FULL', 'Paiement unique'),
+        ('PARTIEL', 'Paiement échelonné'),
+    ]
+
     nom = models.CharField(max_length=50)
     date_debut = models.DateField()
     date_fin = models.DateField()
-    montant = models.DecimalField(max_digits=10, decimal_places=2)
-    classe = models.ForeignKey(Classe, on_delete=models.CASCADE)
+    montant_total = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(5000)]
+    )
+    classe = models.ManyToManyField('Classe')
+    examen = models.ForeignKey('Examen', on_delete=models.CASCADE)
+    mode_paiement = models.CharField(
+        max_length=7,
+        choices=MODE_PAIEMENT_CHOICES,
+        default='FULL'
+    )
+    nombre_tranches = models.PositiveIntegerField(
+        default=1,
+        help_text="Nombre de tranches pour le paiement échelonné"
+    )
+    rappel_jours = models.PositiveIntegerField(default=3)
+
+    modalites_paiement = models.TextField(
+        blank=True,
+        help_text="Modalités de paiement spécifiques"
+    )
+
+    historique_modifications = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Historique des modifications de la période"
+    )
+
+
+    def __str__(self):
+        return f"{self.nom} ({self.date_debut} - {self.date_fin})"
+
+    def generer_tranches(self):
+        """Génère automatiquement les tranches 50%/25%/25% avec des dates échelonnées"""
+        from django.db import transaction
+        with transaction.atomic():  # Transaction atomique pour éviter les incohérences
+            # Suppression des anciennes tranches existantes
+            self.tranchepaiement_set.all().delete()
+
+            if self.mode_paiement != 'PARTIEL' or self.nombre_tranches != 3:
+                raise ValidationError("Cette méthode nécessite le mode PARTIEL avec exactement 3 tranches")
+
+            total = self.montant_total
+            delta_days = (self.date_fin - self.date_debut).days
+
+            # Calcul des montants avec arrondi décimal
+            amounts = [
+                total * Decimal('0.50'),  # 50%
+                total * Decimal('0.25'),  # 25%
+                total * Decimal('0.25')  # 25%
+            ]
+            print(amounts)
+
+            # Vérification que la somme est correcte
+            if sum(amounts) != total:
+                # Ajustement de la dernière tranche pour compenser les erreurs d'arrondi
+                amounts[-1] = total - sum(amounts[:2])
+
+            # Calcul des dates échelonnées
+            dates = [
+                self.date_debut + timedelta(days=delta_days // 3),
+                self.date_debut + timedelta(days=2 * delta_days // 3),
+                self.date_fin
+            ]
+
+            # Création des tranches
+            for i, (amount, date) in enumerate(zip(amounts, dates), start=1):
+                TranchePaiement.objects.create(
+                    periode=self,
+                    ordre=i,
+                    montant=amount.quantize(Decimal('0.01')),  # Arrondi à 2 décimales
+                    date_echeance=date,
+                    statut='NON_ECHEU'
+                )
+
+            # Validation de la cohérence des données
+            self.full_clean()
+
+    def montant_restant_eleve(self, eleve):
+        if self.mode_paiement == 'FULL':
+            return self.montant_total - self.montant_paye_eleve(eleve)
+        else:
+            return sum(
+                tranche.montant_restant(eleve)
+                for tranche in self.tranchepaiement_set.all()
+            )
+
+    def montant_paye_eleve(self, eleve):
+        return self.paiement_set.filter(
+            eleve=eleve,
+            statut_paiement='REUSSI'
+        ).aggregate(total=models.Sum('montant_paye'))['total'] or 0
+
+    def prochaine_tranche_eleve(self, eleve):
+        return self.tranchepaiement_set.exclude(
+            paiement__eleve=eleve,
+            paiement__statut_paiement='REUSSI'
+        ).order_by('date_echeance').first()
+
+    def generer_echeancier_pdf(self, eleve):
+        # Génération d'un PDF personnalisé avec les échéances
+        pass
+
+    def envoyer_rappel_automatique(self):
+        # Intégration avec un système d'envoi d'emails/SMS
+        pass
 
 
 class Paiement(models.Model):
@@ -759,28 +983,141 @@ class Paiement(models.Model):
 
     STATUT_CHOICES = [
         ('EN_ATTENTE', 'En attente'),
+        ('PARTIEL', 'Paiement partiel'),
         ('REUSSI', 'Paiement réussi'),
         ('ECHOUE', 'Paiement échoué'),
+        ('ANNULE', 'Paiement annulé'),
     ]
 
     eleve = models.ForeignKey(Eleve, on_delete=models.CASCADE, related_name='paiements')
     periode = models.ForeignKey(PeriodePaiement, on_delete=models.CASCADE)
-    montant_paye = models.DecimalField(max_digits=10, decimal_places=2)
+    tranche = models.ForeignKey(
+        TranchePaiement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Tranche concernée (si paiement échelonné)"
+    )
+    montant_paye = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(500)]
+    )
     date_paiement = models.DateTimeField(auto_now_add=True)
     mode_paiement = models.CharField(max_length=10, choices=MODE_CHOICES)
-    transaction_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    statut = models.BooleanField(default=False)
-    statut_paiement = models.CharField(max_length=20, choices=STATUT_CHOICES, default='EN_ATTENTE')
-    suspendu = models.BooleanField(default=False)
+    transaction_id = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="Référence transaction"
+    )
+    statut_paiement = models.CharField(
+        max_length=20,
+        choices=STATUT_CHOICES,
+        default='EN_ATTENTE'
+    )
+    caissier = models.ForeignKey(
+        Administrateur,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paiements_encaisses'
+    )
+    numero_quittance = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False
+    )
+    preuve_paiement = models.FileField(
+        upload_to='preuves_paiement/',
+        null=True,
+        blank=True,
+        help_text="Scan du reçu pour paiement mobile"
+    )
+    commentaire = models.TextField(blank=True)
 
-    def save(self, *args,**kwargs):
+    class Meta:
+        ordering = ['-date_paiement']
+        permissions = [
+            ('confirmer_paiement', 'Peut confirmer les paiements'),
+            ('annuler_paiement', 'Peut annuler les paiements')
+        ]
+
+    def __str__(self):
+        return f"Paiement #{self.numero_quittance} - {self.eleve}"
+
+    @property
+    def solde_restant(self):
+        if self.tranche:
+            total_tranche = self.tranche.montant
+            paye_tranche = Paiement.objects.filter(
+                tranche=self.tranche,
+                statut_paiement__in=['REUSSI', 'PARTIEL']
+            ).aggregate(total=Sum('montant_paye'))['total'] or Decimal('0.00')
+            return max(total_tranche - paye_tranche, Decimal('0.00'))
+
+        total_periode = self.periode.montant_total
+        paye_periode = Paiement.objects.filter(
+            periode=self.periode,
+            eleve=self.eleve,
+            statut_paiement__in=['REUSSI', 'PARTIEL']
+        ).aggregate(total=Sum('montant_paye'))['total'] or Decimal('0.00')
+        return max(total_periode - paye_periode, Decimal('0.00'))
+
+    def est_complet(self):
+        return self.solde_restant <= Decimal('0.00')
+
+    def mettre_a_jour_statut(self):
+        if self.statut_paiement in ['ANNULE', 'ECHOUE']:
+            return
+
+        if self.est_complet():
+            self.statut_paiement = 'REUSSI'
+        elif self.montant_paye > Decimal('0.00'):
+            self.statut_paiement = 'PARTIEL'
+        else:
+            self.statut_paiement = 'EN_ATTENTE'
+
+        self.save()
+        self._mettre_a_jour_tranche()
+
+    def _mettre_a_jour_tranche(self):
+        if self.tranche:
+            total_paye = self.tranche.paiement_set.filter(
+                statut_paiement__in=['REUSSI', 'PARTIEL']
+            ).aggregate(total=Sum('montant_paye'))['total'] or Decimal('0.00')
+
+            if total_paye >= self.tranche.montant:
+                self.tranche.statut = 'PAYE'
+            elif total_paye > 0:
+                self.tranche.statut = 'PARTIEL'
+            else:
+                self.tranche.statut = 'ECHEU' if self.tranche.date_echeance < timezone.now().date() else 'NON_ECHEU'
+
+            self.tranche.save()
+
+    def save(self, *args, **kwargs):
+        if not self.numero_quittance:
+            prefix = 'Q' + timezone.now().strftime('%y%m%d')
+            last_q = Paiement.objects.filter(numero_quittance__startswith=prefix).count()
+            self.numero_quittance = f"{prefix}-{last_q + 1:04d}"
+
         if self.mode_paiement == 'ESPECES' and not self.transaction_id:
-            self.transaction_id = f"ESPECES-{timezone.now().timestamp()}"
+            self.transaction_id = f"ESP-{self.numero_quittance}"
+
+        if self.mode_paiement in ['ORANGE', 'MALITEL'] and not self.transaction_id:
+            raise ValidationError("Les paiements mobiles nécessitent une référence de transaction")
+
         super().save(*args, **kwargs)
+        self.mettre_a_jour_statut()
 
 
 class AccessLog(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey('Administrateur', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    # Champs supplémentaires pour stocker les informations utilisateur indépendamment du modèle d'utilisateur
+    custom_user_id = models.PositiveIntegerField(null=True, blank=True)
+    custom_user_type = models.CharField(max_length=50, null=True, blank=True)  # Pour stocker le nom du modèle d'utilisateur
     timestamp = models.DateTimeField(auto_now_add=True)
     action = models.CharField(max_length=100)
     url = models.CharField(max_length=500)
@@ -789,13 +1126,31 @@ class AccessLog(models.Model):
 
     @classmethod
     def log(cls, request, action, details=None, status='success'):
-        cls.objects.create(
-            user=request.user if request.user.is_authenticated else None,
-            action=action,
-            url=request.get_full_path(),
-            details=details or {},
-            status=status
-        )
+        if request.user.is_authenticated:
+            # Obtenir le type et l'ID de l'utilisateur indépendamment du modèle réel
+            user_type = request.user.__class__.__name__
+            user_id = request.user.id
+
+            # Créer une entrée de journal avec le type et l'ID de l'utilisateur
+            cls.objects.create(
+                user=None,  # Ne pas utiliser la ForeignKey directement
+                custom_user_id=user_id,
+                custom_user_type=user_type,
+                action=action,
+                url=request.get_full_path(),
+                details=details or {},
+                status=status
+            )
+        else:
+            cls.objects.create(
+                user=None,
+                custom_user_id=None,
+                custom_user_type=None,
+                action=action,
+                url=request.get_full_path(),
+                details=details or {},
+                status=status
+            )
 
 
 class ApprovalRequest(models.Model):
@@ -805,10 +1160,10 @@ class ApprovalRequest(models.Model):
         ('REJECTED', 'Rejeté')
     ]
 
-    requester = models.ForeignKey(settings.AUTH_USER_MODEL,
+    requester = models.ForeignKey('Administrateur',
                                   related_name='requests_created',
                                   on_delete=models.CASCADE)
-    approver = models.ForeignKey(settings.AUTH_USER_MODEL,
+    approver = models.ForeignKey('Administrateur',
                                  related_name='requests_to_approve',
                                  null=True,
                                  on_delete=models.SET_NULL)
@@ -818,84 +1173,196 @@ class ApprovalRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True)
     comments = models.TextField(blank=True)
+    action_metadata = models.JSONField(null=True)
 
     def approve(self, approver):
+        # Vérifier que l'approbateur est un directeur
+        if not approver.role == 'DIRECTEUR':
+            raise PermissionError("Seul le directeur peut approuver les demandes")
+
         self.status = 'APPROVED'
         self.approver = approver
         self.resolved_at = timezone.now()
         self.save()
         self.execute_action()
 
+        # Enregistrer l'action dans les logs
+        AccessLog.objects.create(
+            user=None,
+            custom_user_id=approver.id,
+            custom_user_type=approver.__class__.__name__,
+            action=f"APPROVAL_{self.action_type}",
+            url="",
+            details={"request_id": self.id, "target": self.target_object},
+            status="success"
+        )
+
     def reject(self, approver, reason):
+        # Vérifier que l'approbateur est un directeur
+        if not approver.role == 'DIRECTEUR':
+            raise PermissionError("Seul le directeur peut rejeter les demandes")
+
         self.status = 'REJECTED'
         self.approver = approver
         self.comments = reason
         self.resolved_at = timezone.now()
         self.save()
 
+        # Enregistrer l'action dans les logs
+        AccessLog.objects.create(
+            user=None,
+            custom_user_id=approver.id,
+            custom_user_type=approver.__class__.__name__,
+            action=f"REJECTION_{self.action_type}",
+            url="",
+            details={"request_id": self.id, "target": self.target_object, "reason": reason},
+            status="success"
+        )
+
     def execute_action(self):
-        # Implémenter la logique métier selon action_type
-        pass
+        """
+        Exécute l'action approuvée en fonction du type d'action.
+        Cette méthode est appelée automatiquement lorsqu'une demande est approuvée.
+        """
+        from django.urls import resolve, Resolver404
+        from django.http import HttpRequest
+        from django.contrib.auth.models import AnonymousUser
 
+        # Récupérer les informations de la demande
+        action_type = self.action_type
+        target_object = self.target_object
+        metadata = self.action_metadata
 
-#
-# class Agent(AbstractUser):
-#     agent_super = models.ManyToManyField(Administrateur, related_name='Agent_super', blank=True)
-#     matricule = models.CharField(max_length=20, unique=True, null=True)
-#     telephone = PhoneNumberField(db_index=True, unique=True, region='ML')
-#     email = models.EmailField(max_length=20, unique=True)
-#     prenom = models.CharField(max_length=20)
-#     nom = models.CharField(max_length=20)
-#     username = models.CharField(max_length=20, blank=True, verbose_name="Nom d'utilisateur")
-#     last_login = models.DateTimeField(auto_now_add=True, auto_created=True, blank=True, editable=True)
-#     first_name = models.CharField(max_length=20,  editable=True)
-#     last_name = models.CharField(max_length=20, editable=True)
-#     profile_picture = models.ImageField(upload_to='profiles/', default='default_profile.jpg')
-#     password = models.CharField(max_length=128, verbose_name="Mot de Passe")
-#
-#     code_expiry = models.DateTimeField(default=timezone.now() + timedelta(minutes=int(settings.SMS_CODE_VALIDITY)),
-#                                        editable=True, help_text="Elle s'auto saisie")
-#
-#     is_agent = models.BooleanField(default=True, verbose_name="Un agent")
-#     is_active = models.BooleanField(default=True, verbose_name="Compte actif")
-#     is_staff = models.BooleanField(default=False, editable=True)
-#     super_agent = models.ForeignKey(Administrateur, on_delete=models.CASCADE, null=True, verbose_name="Super Agent responsable")
-#     date_joined = models.DateTimeField(auto_now_add=True)
-#     login_attempts = models.PositiveIntegerField(default=0)
-#     last_attempt = models.DateTimeField(auto_created=True, auto_now_add=True, null=True)
-#
-#     sms_code = models.CharField(max_length=6, blank=True)
-#
-#     groups = models.ManyToManyField(
-#         'auth.group',
-#         verbose_name='groupes',
-#         blank=True,
-#         help_text='Groupes auxquels cet utilisateur appartient.',
-#         # related_name='Agent_groupes'
-#     )
-#     user_permissions = models.ManyToManyField(
-#         'auth.Permission',
-#         verbose_name='permissions',
-#         help_text='Permissions spécifiques à cet utilisateur.',
-#         # related_name='Agent_permissions'
-#
-#     )
-#
-#     def save(self, *args, **kwargs):
-#         print(self.password.split('_')[0])
-#         if self.password.split('_')[0] == 'pbkdf2':
-#             super().save(*args, **kwargs)
-#             return True
-#         if self.pk is None or self.password:
-#             self.set_password(self.password)
-#         super().save(*args, **kwargs)
-#
-#     def set_password(self, raw_password):
-#         self.password = make_password(raw_password)
-#
-#
-#     class Meta:
-#         verbose_name = 'Agent'
-#         verbose_name_plural = 'Agents'
-#
-#
+        try:
+            # Créer une requête simulée pour exécuter la vue
+            request = HttpRequest()
+            request.method = 'POST'
+            request.user = self.requester
+            request.META = {'HTTP_HOST': 'localhost:8000'}
+
+            # Ajouter les données POST
+            if 'post_data' in target_object:
+                from django.http import QueryDict
+                post_data = QueryDict('', mutable=True)
+                for key, value in target_object['post_data'].items():
+                    if isinstance(value, list):
+                        post_data.setlist(key, value)
+                    else:
+                        post_data[key] = value
+                request.POST = post_data
+
+            # Essayer de résoudre l'URL pour obtenir la vue
+            if 'url' in target_object:
+                try:
+                    resolver_match = resolve(target_object['url'])
+                    view_func = resolver_match.func
+                    args = metadata.get('args', [])
+                    kwargs = metadata.get('kwargs', {})
+
+                    # Ajouter un indicateur pour éviter les boucles infinies
+                    request.is_approved_action = True
+
+                    # Exécuter la vue
+                    response = view_func(request, *args, **kwargs)
+
+                    # Enregistrer le succès dans les logs
+                    AccessLog.objects.create(
+                        user=None,
+                        custom_user_id=self.approver.id if self.approver else None,
+                        custom_user_type=self.approver.__class__.__name__ if self.approver else None,
+                        action=f"EXECUTED_{action_type}",
+                        url=target_object.get('url', ''),
+                        details={
+                            "request_id": self.id,
+                            "target": target_object,
+                            "result": "success"
+                        },
+                        status="success"
+                    )
+
+                    return True
+                except Resolver404:
+                    # Enregistrer l'échec dans les logs
+                    AccessLog.objects.create(
+                        user=None,
+                        custom_user_id=self.approver.id if self.approver else None,
+                        custom_user_type=self.approver.__class__.__name__ if self.approver else None,
+                        action=f"EXECUTION_FAILED_{action_type}",
+                        url=target_object.get('url', ''),
+                        details={
+                            "request_id": self.id,
+                            "target": target_object,
+                            "error": "URL not found"
+                        },
+                        status="error"
+                    )
+                    return False
+
+            # Si nous ne pouvons pas exécuter l'action automatiquement,
+            # nous enregistrons simplement que l'action a été approuvée
+            AccessLog.objects.create(
+                user=None,
+                custom_user_id=self.approver.id if self.approver else None,
+                custom_user_type=self.approver.__class__.__name__ if self.approver else None,
+                action=f"APPROVED_{action_type}",
+                url="",
+                details={
+                    "request_id": self.id,
+                    "target": target_object,
+                    "note": "Action approved but not automatically executed"
+                },
+                status="success"
+            )
+            return True
+
+        except Exception as e:
+            # En cas d'erreur, enregistrer l'échec dans les logs
+            AccessLog.objects.create(
+                user=None,
+                custom_user_id=self.approver.id if self.approver else None,
+                custom_user_type=self.approver.__class__.__name__ if self.approver else None,
+                action=f"EXECUTION_ERROR_{action_type}",
+                url=target_object.get('url', ''),
+                details={
+                    "request_id": self.id,
+                    "target": target_object,
+                    "error": str(e)
+                },
+                status="error"
+            )
+            return False
+
+    @classmethod
+    def create_request(cls, requester, action_type, target_object, action_metadata):
+        """
+        Crée une nouvelle demande d'approbation.
+
+        Args:
+            requester: L'utilisateur qui fait la demande
+            action_type: Le type d'action demandée
+            target_object: L'objet cible de l'action (en format JSON)
+            action_metadata: Métadonnées supplémentaires pour l'action
+
+        Returns:
+            La demande d'approbation créée
+        """
+        request = cls.objects.create(
+            requester=requester,
+            action_type=action_type,
+            target_object=target_object,
+            action_metadata=action_metadata,
+            status='PENDING'
+        )
+
+        # Enregistrer l'action dans les logs
+        AccessLog.objects.create(
+            user=None,
+            custom_user_id=requester.id if requester else None,
+            custom_user_type=requester.__class__.__name__ if requester else None,
+            action=f"REQUEST_{action_type}",
+            url="",
+            details={"request_id": request.id, "target": target_object},
+            status="success"
+        )
+
+        return request

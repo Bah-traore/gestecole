@@ -1,92 +1,178 @@
 {% extends 'base_admin.html' %}
+{% load static perso_filtre %}
 
 {% block content %}
-<div class="examen-detail">
-    <h1>{{ examen.nom }}</h1>
-    
-    <div class="examen-info mb-4">
-        <div class="card">
-            <div class="card-body">
-                <p>Matière : <strong>{{ examen.matieres.nom }}</strong></p>
-                <p>Classe : <strong>Classe {{ examen.classe.niveau }}{{ examen.classe.section }}</strong></p>
-                <p>Date : <strong>{{ examen.date|date:"d/m/Y" }}</strong></p>
-                <p>Coefficient : <strong>{{ examen.coefficient }}</strong></p>
+<div class="container mx-auto px-4 py-6">
+    <a href="{% url 'liste_examens' %}" class="inline-flex items-center px-4 py-2 mb-6 text-sm font-medium text-white bg-gray-600 rounded-lg shadow hover:bg-gray-700">
+        <i class="fas fa-arrow-left mr-2"></i> Retour aux examens
+    </a>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <!-- Formulaire de filtre -->
+        {% comment %} {% include 'filtrePeriodeClasse/filtrerPeriodeClasse.html' %} {% endcomment %}
+
+ <div class="mb-8 bg-gray-50 p-4 rounded-lg">
+        <form method="get" class="flex flex-wrap gap-4 items-end">
+            <!-- Filtre Année Scolaire -->
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Année Scolaire:</label>
+                <select name="annee" class="w-full p-2 border rounded-md">
+                    <option value="">Toutes</option>
+                    {% for annee in annees %}
+                    <option value="{{ annee }}" {% if annee == selected_annee %}selected{% endif %}>
+                        {{ annee }}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
+
+            <!-- Filtre Classe -->
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Classe:</label>
+                <select name="classe" class="w-full p-2 border rounded-md">
+                    <option value="">Toutes</option>
+                    {% for classe in classes_dispo %}
+                    <option value="{{ classe.id }}" {% if classe.id|stringformat:"s" == selected_classe|stringformat:"s" %}selected{% endif %}>
+                        {{ classe.niveau }} {{ classe.section }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="h-[42px] px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                <i class="fas fa-filter mr-2"></i>Filtrer
+            </button>
+        </form>
     </div>
 
-    <div class="stats mb-4">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card text-white bg-primary">
-                    <div class="card-body">
-                        <h5>Moyenne</h5>
-                        <h2>{{ moyenne_generale }}/20</h2>
-                    </div>
+        <!-- En-tête -->
+        <div class="border-b pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-blue-600">{{ examen.nom }}</h1>
+            <div class="mt-2 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <p class="font-semibold">Classes concernées :</p>
+                    <ul class="list-disc pl-4">
+                        {% for classe in classes %}
+                        <li>{{ classe.niveau }} {{ classe.section }}</li>
+                        {% endfor %}
+                    </ul>
+                    <p class="mt-2"><span class="font-semibold">Période :</span> 
+                        {{ examen.date|date:"d/m/Y" }} - {{ examen.date_fin|date:"d/m/Y" }}</p>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card text-white bg-success">
-                    <div class="card-body">
-                        <h5>Meilleure note</h5>
-                        <h2>{{ note_max }}/20</h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card text-white bg-danger">
-                    <div class="card-body">
-                        <h5>Note la plus basse</h5>
-                        <h2>{{ note_min }}/20</h2>
-                    </div>
+                <div>
+                    <p><span class="font-semibold">Matières :</span> 
+                        {{ matieres|join:", " }}</p>
+                    <p class="mt-2"><span class="font-semibold">Statut :</span>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full
+                            {% if examen.validite == 'EN_COURS' %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ examen.get_validite_display }}
+                        </span>
+                    </p>
                 </div>
             </div>
         </div>
+
+        <!-- Statistiques -->
+        <div class="bg-blue-50 p-4 rounded-lg mb-6">
+            <h2 class="text-lg font-semibold mb-3">Statistiques globales</h2>
+            <div class="grid grid-cols-4 gap-4 text-center">
+                <div class="bg-white p-3 rounded shadow">
+                    <p class="text-2xl font-bold text-blue-600">{{ moyenne_generale|floatformat:2 }}/40</p>
+                    <p class="text-sm text-gray-600">Moyenne générale</p>
+                </div>
+                <div class="bg-white p-3 rounded shadow">
+                    <p class="text-2xl font-bold text-green-600">{{ note_max|floatformat:2 }}/40</p>
+                    <p class="text-sm text-gray-600">Note maximale</p>
+                </div>
+                <div class="bg-white p-3 rounded shadow">
+                    <p class="text-2xl font-bold text-red-600">{{ note_min|floatformat:2 }}/40</p>
+                    <p class="text-sm text-gray-600">Note minimale</p>
+                </div>
+                <div class="bg-white p-3 rounded shadow">
+                    <p class="text-2xl font-bold text-purple-600">{{ total_eleves }}</p>
+                    <p class="text-sm text-gray-600">Élèves concernés</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des notes -->
+        <h2 class="text-lg font-semibold mb-4">Détail des performances</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-auto border-collapse border border-gray-200 rounded-lg shadow">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Élève</th>
+                        {% for matiere in matieres %}
+                        <th class="px-4 py-2 text-center text-sm font-medium text-gray-700">
+                            {{ matiere.nom }}<br>
+                            <span class="text-xs text-gray-500">(coeff {{ matiere.coefficient }})</span>
+                        </th>
+                        {% endfor %}
+                        <th class="px-4 py-2 text-center text-sm font-medium text-gray-700">Moyenne</th>
+                        <th class="px-4 py-2 text-center text-sm font-medium text-gray-700">Appréciation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for eleve_data in notes_par_eleve %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2 text-sm border-b font-medium">
+                            <a href="{% url 'detail_eleve' eleve_data.eleve.id %}" 
+                               class="text-blue-600 hover:text-blue-800 transition-colors">
+                                {{ eleve_data.eleve.nom|upper }} {{ eleve_data.eleve.prenom|upper }}
+                            </a>
+                        </td>
+                        {% for matiere in matieres %}
+                        <td class="px-4 py-2 text-sm border-b text-center">
+                            {% with note=eleve_data.notes|get_item:matiere.id %}
+                            {% if note %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full
+                                {% if note >= 32 %}bg-green-100 text-green-800
+                                {% elif note >= 24 %}bg-blue-100 text-blue-800
+                                {% elif note >= 16 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ note|floatformat:2 }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        {% endfor %}
+                        <td class="px-4 py-2 text-sm border-b text-center font-semibold">
+                            {{ eleve_data.moyenne|floatformat:2 }}
+                        </td>
+                        <td class="px-4 py-2 text-sm border-b text-center">
+                            {% if eleve_data.moyenne >= 32 %}
+                            <span class="text-green-700">Excellent</span>
+                            {% elif eleve_data.moyenne >= 24 %}
+                            <span class="text-blue-700">Très bien</span>
+                            {% elif eleve_data.moyenne >= 16 %}
+                            <span class="text-yellow-700">Bien</span>
+                            {% elif eleve_data.moyenne >= 8 %}
+                            <span class="text-orange-500">Passable</span>
+                            {% else %}
+                            <span class="text-red-700">Insuffisant</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ matieres|length|add:3 }}" class="px-4 py-2 text-center text-sm text-gray-500">
+                            Aucune note enregistrée pour cet examen
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-6 flex justify-end space-x-3">
+            <a href="{% url 'modifier_examen' examen.id %}" class="btn btn-blue">
+                <i class="fas fa-edit mr-2"></i>Modifier l'examen
+            </a>
+        </div>
     </div>
-
-    <h3>Notes des élèves</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Élève</th>
-                <th>Note</th>
-                <th>Appréciation</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for note in notes_examen %}
-            <tr>
-                <td>{{ note.eleve.prenom }} {{ note.eleve.nom }}</td>
-                <td>{{ note.note }}/20</td>
-                <td>
-                    {% if note.note >= 16 %} Excellent
-                    {% elif note.note >= 14 %} Très bien
-                    {% elif note.note >= 12 %} Bien
-                    {% elif note.note >= 10 %} Satisfaisant
-                    {% else %} Insuffisant
-                    {% endif %}
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="3">Aucune note saisie</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-
-{% comment %} {% if user.role in ['DIRECTEUR', 'CENSEUR'] %}
-<form method="post" action="{% url 'modifier_statut_examen' examen.id %}">
-    {% csrf_token %}
-    <select name="validite">
-        <option value="EN_COURS" {% if examen.validite == 'EN_COURS' %}selected{% endif %}>En cours</option>
-        <option value="FIN" {% if examen.validite == 'FIN' %}selected{% endif %}>Terminé</option>
-    </select>
-    <button type="submit" class="btn btn-warning">Modifier le statut</button>
-</form>
-{% endif %} {% endcomment %}
-
-
 </div>
 {% endblock %}

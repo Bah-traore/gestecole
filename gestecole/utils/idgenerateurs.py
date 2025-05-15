@@ -40,7 +40,7 @@ class IDGenerator:
             last_num = 1
         return f"{classe.niveau}{classe.section}-{year}-{str(last_num).zfill(4)}"
 
-class SMSService:
+'''class SMSService:
     @staticmethod
     def send_creation_sms(enseignant, password): # password
         if not enseignant.telephone:
@@ -136,4 +136,4 @@ class SMSService:
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Erreur connexion API SMS: {str(e)}")
-            return False
+            return False'''

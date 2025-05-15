@@ -64,10 +64,6 @@ def get_eleves_classe(request):
             validite="EN_COURS",
             date__range=(periode.date_debut, periode.date_fin)
         ).first()
-
-        print(examen)
-
-
         # Optimisation des requêtes de notes
         eleves_query = Eleve.objects.filter(classe=classe).prefetch_related(
             Prefetch(
@@ -148,73 +144,10 @@ def get_eleves_classe(request):
 
 
 
-
-#
-# @csrf_protect
-# @require_http_methods(["GET", "POST"])
-# def get_eleves_saisir_notes(request):
-#     # views.py
-#     from django.shortcuts import render, redirect
-#     from django.contrib import messages
-#     from django.utils import timezone
-#     from .models import Classe, Matiere, Examen, Note, Periode
-
-    # def saisir_notes(request):
-    #     if request.method == 'POST':
-    #         classe_id = request.POST.get('classe')
-    #         matiere_id = request.POST.get('matiere')
-    #         examen_id = request.POST.get('examen')
-    #
-    #         try:
-    #             classe = Classe.objects.get(id=classe_id)
-    #             matiere = Matiere.objects.get(id=matiere_id)
-    #             examen = Examen.objects.get(id=examen_id) if examen_id else None
-    #             today = timezone.now().date()
-    #
-    #             # Validation des contraintes
-    #             periode = None
-    #             if examen:
-    #                 if not (examen.date <= today <= examen.date_fin):
-    #                     raise ValidationError("Hors période de l'examen")
-    #                 periode = examen.periode
-    #             else:
-    #                 periode = Periode.objects.active().filter(
-    #                     classe=classe,
-    #                     date_debut__lte=today,
-    #                     date_fin__gte=today
-    #                 ).first()
-    #                 if not periode:
-    #                     raise ValidationError("Aucune période active")
-    #
-    #             if periode.cloture or not periode.is_active:
-    #                 raise ValidationError("Période clôturée/inactive")
-    #
-    #             # Enregistrement des notes
-    #             for key, value in request.POST.items():
-    #                 if key.startswith('note_'):
-    #                     eleve_id = key.split('_')[1]
-    #                     eleve = Eleve.objects.get(id=eleve_id)
-    #                     Note.objects.update_or_create(
-    #                         eleve=eleve,
-    #                         matiere=matiere,
-    #                         examen_reference=examen,
-    #                         defaults={'valeur': float(value), 'date': today, 'periode': periode}
-    #                     )
-    #
-    #             messages.success(request, "Notes sauvegardées")
-    #             return redirect('saisir_notes')
-    #
-    #         except Exception as e:
-    #             messages.error(request, str(e))
-    #
-    #     # GET: Afficher les données initiales
-    #     classes = Classe.objects.all()
-    #     matieres = Matiere.objects.all()
-    #     examens_en_cours = Examen.objects.filter(validite='EN_COURS')
-    #     examens_fin = Examen.objects.filter(validite='FIN')
-    #     return render(request, 'saisir_notes.html', {
-    #         'classes': classes,
-    #         'matieres': matieres,
-    #         'examens_en_cours': examens_en_cours,
-    #         'examens_fin': examens_fin
-    #     })
+@require_GET
+def get_eleves(request):
+    classe_id = request.GET.get('classe_id')
+    if classe_id:
+        eleves = Eleve.objects.filter(classe__id=classe_id).values('id', 'nom', 'prenom')
+        return JsonResponse(list(eleves), safe=False)
+    return JsonResponse([], safe=False)

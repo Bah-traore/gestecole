@@ -37,8 +37,8 @@ class Command(BaseCommand):
                         classe=classe,
                         age=fake.random_int(min=12, max=20),
                         residence=fake.city(),
-                        prenom_parent=fake.first_name(),
-                        nom_parent=fake.last_name(),
+                        prenom_pere=fake.first_name(),
+                        nom_pere=fake.last_name(),
                         password=make_password(IDGenerator.generatriceMDP_default()),
                         identifiant=IDGenerator.generate_student_id(classe)
                     )

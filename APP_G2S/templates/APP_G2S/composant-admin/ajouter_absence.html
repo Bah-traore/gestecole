@@ -1,18 +1,108 @@
 {% extends 'base_admin.html' %}
 
 {% block content %}
-<div class="container">
-
-    <h2>Ajouter une absence</h2>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
-        <a href="{% url 'liste_absences' %}" class="btn btn-secondary">Annuler</a>
-    </form>
+<div class="container mx-auto mt-10 max-w-xl">
+    <div class="bg-white rounded-lg shadow-lg">
+        <div class="bg-blue-600 rounded-t-lg px-6 py-4">
+            <h2 class="text-white text-2xl font-semibold mb-0 ">Ajouter une absence</h2>
+        </div>
+        <div class="px-6 py-6">
+            <form method="post" class="space-y-6" novalidate>
+                {% comment %} {% csrf_token %} {% endcomment %}
+                     {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="text-red-500 text-sm">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+                <div>
+                    <label for="id_classe" class="block text-gray-700 font-medium mb-1">
+                        Classe
+                    </label>
+                    <select id="id_classe" name="classe" class="w-full border-gray-300 rounded">
+                        <option value="">---------</option>
+                        {% for classe in classes %}
+                            <option value="{{ classe.id }}">{{classe.niveau}} {{ classe.section }} annees</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% for field in form %}
+                    {% if field.name != 'eleve' %}
+                        <div>
+                            <label for="{{ field.id_for_label }}" class="block text-gray-700 font-medium mb-1">
+                                {{ field.label }}
+                            </label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <p class="text-red-500 text-sm mt-1">{{ field.errors|striptags }}</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                <div>
+                    <label for="eleve_id" class="block text-gray-700 font-medium mb-1">
+                        Élève
+                    </label>
+                    <select id="eleve_id" name="eleve" class="w-full border-gray-300 rounded">
+                        {% for eleve in eleves %}
+                            <option value="{{ eleve.id }}">{{ eleve.prenom }} {{ eleve.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex justify-between pt-4">
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded shadow">
+                        Enregistrer
+                    </button>
+                    <a href="{% url 'liste_absences' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded shadow">
+                        Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+{% if messages %}
+    {% for message in messages %}
+        showToast('{{ message }}', 'success');
+    {% endfor %}
+{% endif %}
 
 <script>
+// Mise à jour dynamique des élèves selon la classe
+document.getElementById('id_classe').addEventListener('change', function() {
+    const classeId = this.value;
+    fetch(`/get_eleves/?classe_id=${classeId}`)
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('eleve_id');
+            select.innerHTML = '<option value="">---------</option>';
+            data.forEach(eleve => {
+                const option = document.createElement('option');
+                option.value = eleve.id;
+                option.textContent = `${eleve.prenom} ${eleve.nom}`;
+                select.appendChild(option);
+            });
+        });
+});
+
+
+
+{% comment %} document.getElementById('id_classe').addEventListener('change', function() {
+    const classeId = this.value;
+    fetch(`/get_eleves_classe/?classe_id=${classeId}`)
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('id_eleve');
+            select.innerHTML = '<option value="">---------</option>';
+            data.forEach(eleve => {
+                const option = document.createElement('option');
+                option.value = eleve.id;
+                option.textContent = `${eleve.prenom} ${eleve.nom}`;
+                select.appendChild(option);
+            });
+        });
+}); {% endcomment %}
+
 // Mise à jour dynamique des emplois du temps
 document.getElementById('id_eleve').addEventListener('change', function() {
     const eleveId = this.value;
@@ -31,22 +121,17 @@ document.getElementById('id_eleve').addEventListener('change', function() {
 });
 
 
-{% if messages %}
-    {% for message in messages %}
-        showToast('{{ message }}', 'success');
-    {% endfor %}
-{% endif %}
 
 function showToast(message, type) {
     const toast = document.createElement('div');
-    toast.className = `fixed top-20 right-4 p-4 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+    toast.className = `fixed top-5 right-5 px-6 py-4 rounded-lg shadow-lg text-white text-lg font-semibold ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+    toast.style.zIndex = 1050;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.remove();
     }, 3000);
 }
-</script>
 </script>
 {% endblock %}

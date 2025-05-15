@@ -8,7 +8,9 @@ from django.db import transaction
 from gestecole.utils.idgenerateurs import IDGenerator
 class MyLogin:
     def login_user(self, telephone, password):
-
+        """
+        Authentifie un élève par son numéro de téléphone et son mot de passe.
+        """
         if Eleve.objects.filter(telephone=telephone).exists():
             if check_password(password, Eleve.objects.get(telephone=telephone).password):
                 return Eleve.objects.get(telephone=telephone)
@@ -17,23 +19,24 @@ class MyLogin:
                 # raise ValidationError("Telephone inconnu")
         return None
 
-    # def login_user_Agent(self, matricule, password):
-    #
-    #     if Agent.objects.filter(matricule=matricule).exists():
-    #         print(password, Agent.objects.get(matricule=matricule).password)
-    #         if check_password(password, Agent.objects.get(matricule=matricule).password):
-    #             print("le code est correct")
-    #             return Agent.objects.get(matricule=matricule)
-    #         else:
-    #             print("le code est incorrect 1")
-    #             return None
-    #     print("le matricule est incorrect 1")
-    #     return None
-
     def login_user_Admin(self, identifiant, password):
+        """
+        Authentifie un administrateur par son identifiant et son mot de passe.
+        """
         if Administrateur.objects.filter(identifiant=identifiant).exists():
             if check_password(password, Administrateur.objects.get(identifiant=identifiant).password):
                 return Administrateur.objects.get(identifiant=identifiant)
+            else:
+                return None
+        return None
+
+    def login_user_Agent(self, matricule, password):
+        """
+        Authentifie un enseignant par son identifiant (matricule) et son mot de passe.
+        """
+        if Enseignant.objects.filter(identifiant=matricule).exists():
+            if check_password(password, Enseignant.objects.get(identifiant=matricule).password):
+                return Enseignant.objects.get(identifiant=matricule)
             else:
                 return None
         return None

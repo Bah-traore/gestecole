@@ -1,10 +1,11 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models.aggregates import Sum
 from django.urls import reverse_lazy
 from phonenumber_field.formfields import PhoneNumberField
 
 from APP_G2S.models import Eleve, BulletinPerformance, Periode, NoteExamen, Examen, Paiement, Enseignant, Note, Matiere, \
-    Classe, EmploiDuTemps, Absence, PeriodePaiement
+    Classe, EmploiDuTemps, Absence, PeriodePaiement, TranchePaiement, HistoriqueAcademique
 
 
 class LoginAdminFrom(forms.Form):
@@ -27,7 +28,7 @@ class LoginForm(forms.Form):
 class EleveCreationForm(forms.ModelForm):
     class Meta:
         model = Eleve
-        fields = ['nom', 'prenom', 'prenom_parent', 'nom_parent', 'telephone', 'classe', 'age', 'profile_picture', 'residence']
+        fields = ['nom', 'prenom', 'prenom_pere', 'nom_pere', 'prenom_mere', 'nom_mere', 'telephone', 'classe', 'age', 'profile_picture', 'residence']
         widgets = {
             'telephone': forms.TextInput(attrs={'placeholder': '+223... ou 77...'}),
         }
@@ -146,6 +147,13 @@ class ExamenForm(forms.ModelForm):
         date_fin = cleaned_data.get('date_fin')
         classe = cleaned_data.get('classe')
 
+        if not date:
+            raise ValidationError("La date de début est obligatoire.")
+        if not date_fin:
+            raise ValidationError("La date de fin est obligatoire.")
+        if not classe:
+            raise ValidationError("Au moins une classe doit être sélectionnée.")
+
         if date and date_fin and date > date_fin:
             raise ValidationError("La date de fin doit être postérieure à la date de début.")
 
@@ -171,19 +179,14 @@ class PeriodeForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        date = cleaned_data.get('date')
+        date_debut = cleaned_data.get('date_debut')
         date_fin = cleaned_data.get('date_fin')
-        classe = cleaned_data.get('classe')
 
         # Validation des dates
-        if date and date_fin and date > date_fin:
+        if date_debut and date_fin and date_debut > date_fin:
             self.add_error('date_fin', "La date de fin doit être postérieure à la date de début")
             raise ValidationError("Incohérence temporelle")
 
-        # Validation de l'unicité
-        if classe and date:
-            if Examen.objects.filter(date=date, classe__in=[classe]).exists():
-                self.add_error('date', "Un examen existe déjà pour cette date et classe")
         return cleaned_data
 
 class MatiereForm(forms.ModelForm):
@@ -202,6 +205,9 @@ class MatiereForm(forms.ModelForm):
         if self.Meta.model.objects.exclude(pk=self.instance.pk).filter(nom=nom).exists():
             raise forms.ValidationError("Cette matière existe déjà.")
         return nom
+
+
+
 
 
 class ClasseForm(forms.ModelForm):
@@ -253,32 +259,125 @@ class ClasseForm(forms.ModelForm):
 class AbsenceForm(forms.ModelForm):
     class Meta:
         model = Absence
-        fields = ['eleve', 'emploi_du_temps', 'justification_status', 'justification_document', 'motif']
+        fields = '__all__'
         widgets = {
-            'motif': forms.Textarea(attrs={'rows': 3}),
-
+            'classe': forms.Select(attrs={
+            'class': 'form-control form-select',
+            'placeholder': 'Classe',
+            'style': 'width: 100%;'
+            }),
+            'eleve': forms.Select(attrs={
+            'class': 'form-control form-select',
+            'placeholder': 'Élève',
+            'style': 'width: 100%;'
+            }),
+            'motif': forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Motif de l\'absence',
+            'maxlength': '200',
+            'style': 'resize:vertical; min-height:38px;'
+            }),
+            'justification_commentaire': forms.Textarea(attrs={
+            'class': 'form-control',
+            'placeholder': 'Justification commentaire de l\'absence',
+            'maxlength': '200',
+            'rows': 2,
+            'style': 'resize:vertical; min-height:38px;'
+            }),
+            'date': forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control',
+            'placeholder': 'Date de l\'absence',
+            'min': '2000-01-01',
+            'max': '2100-12-31',
+            'autocomplete': 'off'
+            })
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Filtrer les emplois du temps par classe de l'élève
-        if 'eleve' in self.data:
-            try:
-                eleve_id = self.data.get('eleve')
-                eleve = Eleve.objects.get(id=eleve_id)
-                self.fields['emploi_du_temps'].queryset = EmploiDuTemps.objects.filter(classe=eleve.classe)
-            except (ValueError, TypeError, Eleve.DoesNotExist):
-                pass
+        def __init__(self, *args, **kwargs):
+            emplois = kwargs.pop('emplois', EmploiDuTemps.objects.all())
+            eleves = kwargs.pop('eleves', Eleve.objects.all())
+            super().__init__(*args, **kwargs)
+            self.fields['emploi_du_temps'].queryset = emplois
+            self.fields['eleve'].queryset = eleves
+
 
 
 class PeriodePaiementForm(forms.ModelForm):
+    classe = forms.ModelMultipleChoiceField(
+        queryset=Classe.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True
+    )
+
+    examen = forms.ModelChoiceField(
+        queryset=Examen.objects.filter(validite='EN_COURS'),
+        required=False,
+        help_text="Examen associé (optionnel)"
+    )
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['periode'].queryset = PeriodePaiement.objects.filter(
+            mode_paiement='PARTIEL'
+        )
+
     class Meta:
         model = PeriodePaiement
-        fields = ['nom', 'classe', 'date_debut', 'date_fin', 'montant', 'examen']
+        fields = [
+            'nom', 'date_debut', 'date_fin', 'montant_total',
+            'classe', 'examen', 'mode_paiement', 'nombre_tranches',
+            'rappel_jours', 'modalites_paiement'
+        ]
         widgets = {
             'date_debut': forms.DateInput(attrs={'type': 'date'}),
             'date_fin': forms.DateInput(attrs={'type': 'date'}),
+            'modalites_paiement': forms.Textarea(attrs={'rows': 3}),
         }
+        labels = {
+            'nombre_tranches': "Nombre d'échéances"
+        }
+
+    def clean_montant_total(self):
+        montant = self.cleaned_data['montant_total']
+        if montant < 5000:
+            raise forms.ValidationError("Le montant minimum est de 5000 FCFA")
+        return montant
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date_debut = cleaned_data.get('date_debut')
+        date_fin = cleaned_data.get('date_fin')
+        examen = cleaned_data.get('examen')
+        periode = cleaned_data.get('periode')
+        eleve = cleaned_data.get('eleve')
+        montant = cleaned_data.get('montant_paye')
+
+        if date_debut and date_fin:
+            if date_debut > date_fin:
+                raise ValidationError("La date de fin doit être postérieure à la date de début")
+
+            if examen:
+                if date_debut < examen.date or date_fin > examen.date_fin:
+                    raise ValidationError(
+                        f"Les dates doivent être comprises entre {examen.date} et {examen.date_fin}"
+                    )
+
+        if periode and eleve and montant:
+            tranche = periode.prochaine_tranche_eleve(eleve)
+            if not tranche:
+                raise ValidationError("Toutes les tranches sont déjà payées pour cette période")
+
+            reste = tranche.montant - tranche.montant_paye_eleve(eleve)
+            if montant > reste:
+                raise ValidationError(
+                    f"Montant maximum autorisé pour cette tranche : {reste} XOF"
+                )
+
+            cleaned_data['tranche'] = tranche
+
+        return cleaned_data
 
 
 class PaiementForm(forms.ModelForm):
@@ -292,19 +391,73 @@ class PaiementForm(forms.ModelForm):
         }
 
 
-class PaiementFormEspeces(forms.ModelForm):
+class PaiementEspeceForm(forms.ModelForm):
     class Meta:
         model = Paiement
-        fields = ['eleve', 'periode', 'montant_paye']
+        fields = ['eleve', 'periode', 'tranche', 'montant_paye']
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Précharger les élèves avec leur classe pour l'affichage dans le template
+        self.fields['eleve'].queryset = Eleve.objects.select_related('classe').all()
+
+        self.fields['tranche'].queryset = TranchePaiement.objects.none()
+
+        if 'periode' in self.data:
+            try:
+                periode_id = int(self.data.get('periode'))
+                self.fields['tranche'].queryset = TranchePaiement.objects.filter(
+                    periode_id=periode_id
+                ).order_by('ordre')
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk:
+            self.fields['tranche'].queryset = self.instance.periode.tranchepaiement_set.all()
+
+    def clean_montant_paye(self):
+        montant = self.cleaned_data['montant_paye']
+        periode = self.cleaned_data['periode']
+        eleve = self.cleaned_data['eleve']
+        tranche = self.cleaned_data.get('tranche')
+
+        montant_restant = periode.montant_restant_eleve(eleve)
+
+        if tranche:
+            montant_tranche_restant = tranche.montant - tranche.paiement_set.filter(
+                eleve=eleve
+            ).aggregate(total=Sum('montant_paye'))['total'] or 0
+
+            if montant > montant_tranche_restant:
+                raise forms.ValidationError(
+                    f"Le montant dépasse le reste dû pour cette tranche ({montant_tranche_restant} XOF)"
+                )
+        else:
+            if montant > montant_restant:
+                raise forms.ValidationError(
+                    f"Le montant dépasse le reste dû ({montant_restant} XOF)"
+                )
+
+        return montant
+
+
+
+class ValiderPaiementForm(forms.ModelForm):
+    class Meta:
+        model = Paiement
+        fields = ['statut_paiement', 'commentaire']
         widgets = {
-            'eleve': forms.Select(attrs={'class': 'form-control'}),
-            'periode': forms.Select(attrs={'class': 'form-control'}),
-            'montant_paye': forms.NumberInput(attrs={'class': 'form-control', 'step': '500'})
+            'statut_paiement': forms.RadioSelect()
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['periode'].queryset = PeriodePaiement.objects.all()
+        self.fields['statut_paiement'].choices = [
+            ('REUSSI', 'Confirmer le paiement'),
+            ('ANNULE', 'Annuler le paiement'),
+            ('ECHOUE', 'Marquer comme échoué')
+        ]
 
 class EmploiDuTempsForm(forms.ModelForm):
     class Meta:
@@ -318,7 +471,7 @@ class EmploiDuTempsForm(forms.ModelForm):
 
     '''
     Au lieu de compte sur le form de django, on utilise l'authentification de django pour authentifier l'utilisateur.
-   
+
         # if telephone and password:
         #
         #     user = authenticate(telephone=telephone, password=password)
@@ -373,3 +526,21 @@ class SetNewPasswordForm(forms.Form):
         cleaned_data = super().clean()
         if cleaned_data.get('new_password') != cleaned_data.get('confirm_password'):
             raise ValidationError("Les mots de passe ne correspondent pas")
+        return cleaned_data
+
+class HistoriqueAcademiqueForm(forms.ModelForm):
+    class Meta:
+        model = HistoriqueAcademique
+        fields = ['eleve', 'periode', 'moyenne', 'decision', 'paiement_complet']
+        widgets = {
+            'eleve': forms.Select(attrs={'class': 'form-select'}),
+            'periode': forms.Select(attrs={'class': 'form-select'}),
+            'moyenne': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': 0, 'max': 100}),
+            'decision': forms.Select(attrs={'class': 'form-select'}),
+            'paiement_complet': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Optionally, add custom validation here if needed
+        return cleaned_data

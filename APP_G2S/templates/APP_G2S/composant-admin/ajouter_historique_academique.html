@@ -1,0 +1,33 @@
+{% extends 'base_admin.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow border-0 rounded-4 bg-dark text-light">
+        <div class="card-header bg-gradient-primary text-white rounded-top-4">
+            <h4 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>Ajouter un historique académique</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="form-text text-danger">{{ field.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-success rounded-pill px-4">
+                        <i class="fas fa-save me-2"></i>Enregistrer
+                    </button>
+                    <a href="{% url 'liste_historique_academique' %}" class="btn btn-secondary rounded-pill px-4 ms-2">
+                        Retour
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -3,6 +3,8 @@
 
 {% block content %}
 <div class="container-fluid px-4">
+
+<h1 class="text-center ">Données pour la période : {{ active_period.numero }} ({{ active_period.annee_scolaire }})</h1>
     <h1 class="mt-4 mb-4">Gestion des emplois du temps</h1>
 
     {% if form.errors %}

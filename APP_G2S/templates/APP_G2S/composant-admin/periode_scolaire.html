@@ -1,0 +1,236 @@
+{% extends 'base_admin.html' %}
+{% load static %}
+{% load perso_filtre %}
+
+{% block content %}
+<div class="container-fluid px-4 py-5">
+    <div class="card border-0 shadow-lg rounded-5 bg-gradient-dark text-light">
+        <div class="card-header bg-gradient-primary text-white py-4 rounded-top-5 border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 fw-bold"><i class="fas fa-calendar-alt me-2"></i>Gestion des périodes scolaires</h3>
+                <button class="btn btn-light btn-lg shadow-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#periodModal">
+                    <i class="fas fa-plus me-2"></i>Nouvelle période
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="periodModal" tabindex="-1" aria-labelledby="periodModalLabel">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content rounded-5 border-0">
+                    <div class="modal-header bg-primary text-white border-0 rounded-top-5">
+                        <h5 class="modal-title" id="periodModalLabel">
+                            <i class="fas fa-calendar-plus me-2"></i>Nouvelle période
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" id="periodForm">
+                        <div class="modal-body bg-gradient-dark text-light">
+                            {% csrf_token %}
+                            <div class="row g-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">{{ form.numero.label }}</label>
+                                    {{ form.numero|add_class:"form-control form-control-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                                    <div class="form-text text-danger">{{ form.numero.errors }}</div>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-semibold">{{ form.annee_scolaire.label }}</label>
+                                    {{ form.annee_scolaire|add_class:"form-select form-select-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                                    <div class="form-text text-danger">{{ form.annee_scolaire.errors }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">{{ form.classe.label }}</label>
+                                    {{ form.classe|add_class:"form-select form-select-lg bg-dark text-light border-0 shadow-sm rounded-pill" }}
+                                    <div class="form-text text-danger">{{ form.classe.errors }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Intervalle des dates</label>
+                                    <div class="input-group input-group-lg">
+                                        {{ form.date_debut|add_class:"form-control bg-dark text-light border-0 shadow-sm rounded-start-pill datepicker" }}
+                                        <span class="input-group-text bg-dark text-light border-0">au</span>
+                                        {{ form.date_fin|add_class:"form-control bg-dark text-light border-0 shadow-sm rounded-end-pill datepicker" }}
+                                    </div>
+                                    <div class="form-text text-danger">
+                                        {{ form.date_debut.errors }}
+                                        {{ form.date_fin.errors }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mt-2">
+                                    <div class="form-check form-switch ps-0">
+                                        {{ form.is_active|add_class:"form-check-input bg-success border-0" }}
+                                        <label class="form-check-label fw-semibold ms-2">{{ form.is_active.label }}</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mt-2">
+                                    <div class="form-check form-switch ps-0">
+                                        {{ form.cloture|add_class:"form-check-input bg-danger border-0" }}
+                                        <label class="form-check-label fw-semibold ms-2">{{ form.cloture.label }}</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-gradient-dark border-0 rounded-bottom-5">
+                            <button type="submit" class="btn btn-success btn-lg rounded-pill px-4 shadow">
+                                <i class="fas fa-save me-2"></i>Enregistrer
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-lg rounded-pill px-4 shadow" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Fermer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau des périodes -->
+        <div class="card-body p-4 bg-gradient-dark text-light">
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle table-dark table-striped rounded-5 overflow-hidden shadow">
+                    <thead class="table-light text-dark">
+                        <tr>
+                            <th class="fw-bold">Période</th>
+                            <th class="fw-bold">Classe</th>
+                            <th class="fw-bold">Dates</th>
+                            <th class="fw-bold">Statut</th>
+                            <th class="fw-bold text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for periode in periodes_actives %}
+                        <tr class="align-middle {% if periode.is_active %}table-success{% endif %}">
+                            <td>
+                                <div class="fw-bold fs-5">{{ periode.numero }}</div>
+                                <small class="text-muted">{{ periode.annee_scolaire }}</small>
+                            </td>
+                            <td class="fs-6">{{ periode.classe }} {{ periode.classe.section }}</td>
+                            <td>
+                                <span class="badge bg-secondary rounded-pill px-3 py-2">
+                                    {{ periode.date_debut|date:"d/m/Y" }}
+                                    <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                                    {{ periode.date_fin|date:"d/m/Y" }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if periode.is_active %}
+                                <span class="badge bg-success rounded-pill px-3 py-2">
+                                    <i class="fas fa-check-circle me-2"></i>Active
+                                </span>
+                                {% endif %}
+                                {% if periode.cloture %}
+                                <span class="badge bg-danger rounded-pill px-3 py-2">
+                                    <i class="fas fa-lock me-2"></i>Clôturée
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <a href="{% url 'modifier_periode' periode.id %}" class="btn btn-sm btn-outline-primary rounded-pill shadow-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'supprimer_periode' periode.id %}" class="btn btn-sm btn-outline-danger rounded-pill shadow-sm">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                Aucune période enregistrée
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialisation des datepickers
+    flatpickr('.datepicker', {
+        dateFormat: 'd/m/Y',
+        locale: 'fr'
+    });
+
+    // Activation des toasts
+    var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+    toastElList.map(function(toastEl) {
+        return new bootstrap.Toast(toastEl).show();
+    });
+
+    // Gestion de la soumission du formulaire
+    document.getElementById('periodForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        // Ici on pourrait ajouter une soumission AJAX
+        this.submit();
+    });
+});
+</script>
+
+<style>
+.bg-gradient-dark {
+    background: linear-gradient(135deg, #23272b 0%, #181a1b 100%) !important;
+}
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+.card, .modal-content {
+    border-radius: 2.5rem !important;
+}
+.card-header, .modal-header, .modal-footer {
+    border-radius: 2.5rem 2.5rem 0 0 !important;
+}
+.table {
+    border-radius: 2rem !important;
+    overflow: hidden;
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.10) !important;
+    transition: background 0.2s;
+}
+.badge {
+    min-width: 100px;
+    padding: 0.7em 1.2em;
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+}
+.toast {
+    animation: slideIn 0.3s ease-out;
+    border-radius: 1.2rem;
+}
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+input.form-control, select.form-select {
+    border-radius: 2rem !important;
+    font-size: 1.1em;
+    padding-left: 1.2em;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.input-group-text {
+    border-radius: 0 !important;
+    background: #23272b !important;
+    color: #e0e0e0 !important;
+    border: none !important;
+}
+.btn, .btn-group .btn {
+    border-radius: 2rem !important;
+    font-weight: 500;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-outline-primary:hover, .btn-outline-danger:hover {
+    color: #fff !important;
+}
+.modal-content {
+    border-radius: 2.5rem !important;
+    background: linear-gradient(135deg, #23272b 0%, #181a1b 100%);
+    color: #e0e0e0;
+}
+</style>
+{% endblock %}

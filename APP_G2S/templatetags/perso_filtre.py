@@ -1,4 +1,9 @@
+import re
+from django.utils.safestring import mark_safe
 from django import template
+register = template.Library()
+from django import template
+from reportlab.graphics.barcode.qrencoder import unicode
 
 from APP_G2S.models import Periode, Note, NoteExamen
 
@@ -57,3 +62,27 @@ def get_examen_note(eleve, examen):
         examen=examen
     ).first()
     return note.note if note else ''
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key, None)
+
+
+
+
+class_re = re.compile(r'(?<=class=["\'])(.*)(?=["\'])')
+@register.filter
+def add_class(value, css_class):
+    string = unicode(value)
+    match = class_re.search(string)
+    if match:
+        m = re.search(r'^%s$|^%s\s|\s%s\s|\s%s$' % (css_class, css_class,
+                                                    css_class, css_class),
+                                                    match.group(1))
+        print(match.group(1))
+        if not m:
+            return mark_safe(class_re.sub(match.group(1) + " " + css_class,
+                                          string))
+    else:
+        return mark_safe(string.replace('>', ' class="%s">' % css_class))
+    return value

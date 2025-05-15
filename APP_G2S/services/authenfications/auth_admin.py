@@ -3,10 +3,10 @@ from APP_G2S.models import Administrateur
 
 
 def login_user_admin(identifiant, password):
-    if Administration.objects.filter(identifiant=identifiant).exists():
-        if check_password(password, Administration.objects.get(identifiant=identifiant).password):
+    if Administrateur.objects.filter(identifiant=identifiant).exists():
+        if check_password(password, Administrateur.objects.get(identifiant=identifiant).password):
             print("le code est correct")
-            return Administration.objects.get(identifiant=identifiant)
+            return Administrateur.objects.get(identifiant=identifiant)
         else:
             print("le code est incorrect 1")
             return None
